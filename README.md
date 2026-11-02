@@ -13,7 +13,11 @@ No painel da direita ficam as opções do monitor escolhido: encaixe (preencher,
 próprias dos wallpapers web e o botão **Converter para este monitor**, que aparece quando o vídeo é maior que a tela.
 **Voltar ao papel de parede do Windows** tira o wallpaper animado daquele monitor.
 
-Em **Ajustes**, **Aparência** escolhe o tema da janela: Seguir o Windows (o padrão), Claro ou Escuro.
+Embaixo dos filtros de tipo ficam as **tags** (as do Wallpaper Engine, em português, e as suas) e a
+**classificação** (Livre, Questionável, Adulto). Nos seus arquivos, botão direito no cartão → **Editar tags**.
+
+Em **Ajustes**, **Aparência** escolhe o tema da janela: Seguir o Windows (o padrão), Claro ou Escuro, e **Quadros por
+segundo** limita os wallpapers web (60 por padrão; nunca passa da taxa do monitor).
 
 Fechar a janela não desliga nada: os wallpapers continuam pelo ícone perto do relógio (clique para abrir a janela,
 botão direito para pausar tudo ou sair).

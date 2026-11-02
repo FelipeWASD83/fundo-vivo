@@ -26,15 +26,24 @@ public sealed class WebWallpaper : IWallpaper
     public bool WantsAudio { get; private set; }
     public IntPtr InputWindow { get; private set; }
     public WallpaperWindow Window => _window;
-    public int Fps { get; set; } = 60;
+    public int Fps { get; private set; } = 60;
+
+    /// <summary>Frame-rate cap: handed to the page through applyGeneralProperties and enforced by the shim.</summary>
+    public void SetFps(int fps)
+    {
+        if (fps == Fps) return;
+        Fps = fps;
+        if (_ready) Post("general", new JsonObject { ["fps"] = Fps });
+    }
     public event Action AudioWantedChanged;
     /// <summary>The browser or the page process died; the engine replaces this wallpaper.</summary>
     public event Action Crashed;
 
-    public WebWallpaper(WallpaperWindow window, string file)
+    public WebWallpaper(WallpaperWindow window, string file, int fps)
     {
         _window = window;
         _file = file;
+        Fps = fps;
         // Wallpaper Engine projects keep index.html next to project.json; their assets are relative to that folder.
         string dir = Path.GetDirectoryName(file);
         _project = WeProject.Load(dir);
@@ -83,7 +92,7 @@ public sealed class WebWallpaper : IWallpaper
         // One host name per wallpaper so their localStorage never mixes.
         string host = "w" + Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes(_folder.ToLowerInvariant())))[..12].ToLowerInvariant() + ".fundovivo";
         _web.SetVirtualHostNameToFolderMapping(host, _folder, CoreWebView2HostResourceAccessKind.Allow);
-        await _web.AddScriptToExecuteOnDocumentCreatedAsync(Shim());
+        await _web.AddScriptToExecuteOnDocumentCreatedAsync(Shim().Replace("/*FPS*/0", Fps.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         _web.WebMessageReceived += OnMessage;
         _web.NewWindowRequested += (_, e) => e.Handled = true;
         _web.NavigationCompleted += (_, _) => FindInputWindow();

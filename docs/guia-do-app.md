@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 1.1.0)
+# Fundo Vivo: tudo que tem no app (versão 1.2.0)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele
@@ -35,17 +35,25 @@ Clique num monitor para escolher onde o próximo wallpaper vai.
 ### Biblioteca
 
 - Filtros **Todos**, **Vídeo**, **Web** e **Imagem**, e a busca pelo nome (ignora acento e maiúscula).
+- **Tags**, embaixo dos filtros de tipo: as do Wallpaper Engine, em português (Anime, Jogo, Natureza, Paisagem...), e
+  as suas, cada uma com quantos wallpapers tem. Marcando várias, aparece só o que tem **todas**. Depois vem a
+  **Classificação** (Livre, Questionável, Adulto), lida do próprio wallpaper; ali vale **qualquer uma** das marcadas.
+  Tudo se combina com o tipo e com a busca, e **Limpar** desmarca.
 - **Adicionar arquivo** põe na biblioteca vídeos (mp4, m4v, mov, webm, mkv, wmv, avi), imagens (jpg, png, bmp, gif,
   webp, tif, jxr, heic, avif) ou páginas HTML seus. O arquivo não é copiado: fica onde está.
 - Cada cartão mostra a miniatura, o nome, o tipo, de onde vem (Wallpaper Engine ou seu arquivo) e em quais monitores
   ele está. O do monitor selecionado ganha a borda escura.
 - **Clique num cartão** e ele vai para o monitor selecionado na hora.
-- **Botão direito num cartão:** **Abrir a pasta** e, nos seus arquivos, **Tirar da biblioteca** (o arquivo não é
-  apagado).
+- **Botão direito num cartão:** **Abrir a pasta** e, nos seus arquivos, **Editar tags** e **Tirar da biblioteca**
+  (o arquivo não é apagado). No editor de tags, enquanto você digita aparecem as que já existem, e uma tag que só
+  muda na maiúscula ou no acento vira a que já existe ("anime" vira "Anime").
+- Passando o mouse no nome do cartão aparecem as tags e a classificação dele.
 - A linha de cima conta quantos wallpapers tem e quantos do tipo cena ficaram de fora (veja "O que não faz").
 
 ### Painel do monitor selecionado (à direita)
 
+- **Embaixo do nome**, em quantos fps o wallpaper roda e por quê: o limite dos Ajustes ou o máximo do monitor. No
+  vídeo, o fps do próprio arquivo, que o limite não muda.
 - **Encaixe** (vídeo e imagem): **Preencher** (cobre a tela toda e corta o que sobra), **Ajustar** (mostra o
   wallpaper inteiro, com faixas pretas se o formato for diferente) e **Esticar** (deforma para caber).
 - **Som** (vídeo e web): no vídeo é volume de 0 a 100; no web é ligado ou mudo. Começa sempre mudo.
@@ -76,6 +84,9 @@ As escolhas (encaixe, som, opções) ficam guardadas por wallpaper: se você tro
 - **O mouse funciona nos wallpapers interativos:** movimento e clique na área de trabalho vazia chegam no wallpaper.
 - **Reagir ao som que o PC está tocando:** para os visualizadores de música. Só escuta enquanto um wallpaper que pede
   som está na tela e não está pausado.
+- **Quadros por segundo:** 30, 60 (padrão), 120, 144 ou 160 para o que desenha ao vivo (os wallpapers web). Nunca passa
+  da taxa do monitor: 160 no monitor em pé de 144 Hz roda a 144. Vídeo toca no fps em que foi gravado. Página que
+  anima por CSS ou por relógio próprio não obedece; as que desenham do jeito normal (a maioria) obedecem.
 
 **Biblioteca:** **Mostrar os wallpapers do Wallpaper Engine** liga ou desliga a leitura da pasta do Steam.
 
@@ -116,6 +127,8 @@ parede de antes).
 | Vídeo 4K | 286 MB | 5,5% |
 | Vídeo 4K convertido para o monitor em pé | 155 MB (antes 292) | decodificador da placa em 10% (antes 48%) |
 | Wallpaper web | ~220 MB, somando os processos do Edge | depende da página |
+| Mesmo web nos dois monitores, limite 160 (160 e 144 fps) | | 51% |
+| Mesmo web nos dois monitores, limite 60 (o padrão) | | 28% |
 | Imagem | 97 MB | 0,1% |
 | Tudo pausado | igual à de antes de pausar | 0,6%, placa parada |
 | Tirar da memória durante um jogo | 29 MB | 0% |

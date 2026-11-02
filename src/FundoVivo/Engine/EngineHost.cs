@@ -184,7 +184,7 @@ public sealed class EngineHost : NativeWindow
             {
                 WallpaperType.Video => new VideoWallpaper(_composition, window, s.File),
                 WallpaperType.Image => new ImageWallpaper(_composition, window, s.File),
-                _ => new WebWallpaper(window, s.File) { Fps = (int)Math.Clamp(Math.Round(s.Monitor.RefreshRate), 30, 240) },
+                _ => new WebWallpaper(window, s.File, _config.EffectiveFps(s.Monitor.RefreshRate)),
             };
             window.Content = content;
             if (content is WebWallpaper web)
@@ -459,7 +459,11 @@ public sealed class EngineHost : NativeWindow
                 case "settings":
                     // Fit, volume or Wallpaper Engine properties changed: apply without reloading anything.
                     _config = ConfigStore.Load();
-                    foreach (var s in _slots.Values) s.Window?.Content?.Apply(_config.SettingsFor(s.Assignment.ItemId));
+                    foreach (var s in _slots.Values)
+                    {
+                        s.Window?.Content?.Apply(_config.SettingsFor(s.Assignment.ItemId));
+                        if (s.Window?.Content is WebWallpaper web) web.SetFps(_config.EffectiveFps(s.Monitor.RefreshRate));
+                    }
                     UpdateRawInput();
                     Tick();
                     break;

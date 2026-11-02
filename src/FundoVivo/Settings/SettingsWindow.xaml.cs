@@ -268,9 +268,13 @@ public partial class SettingsWindow : Window
             : FilterImage.IsChecked == true ? WallpaperType.Image : null;
         string q = SearchBox.Text.Trim();
         var compare = CultureInfo.InvariantCulture.CompareInfo;
-        var items = _scan.Items
-            .Where(i => type == null || i.Type == type)
+        var ofType = _scan.Items.Where(i => type == null || i.Type == type).ToList();
+        RenderTagFilters(ofType);
+        var items = ofType
             .Where(i => q.Length == 0 || compare.IndexOf(i.Title, q, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0)
+            // Every checked tag must be there (narrows down); any checked rating is enough (Livre or Questionável).
+            .Where(i => _tagFilter.All(k => i.Tags.Any(t => Tags.Key(t) == k)))
+            .Where(i => _ratingFilter.Count == 0 || (i.Rating != null && _ratingFilter.Contains(i.Rating)))
             .OrderByDescending(i => i.Date)
             .ToList();
         LibraryList.Items.Clear();
@@ -279,6 +283,56 @@ public partial class SettingsWindow : Window
             LibraryList.Items.Add(new TextBlock { Text = _scan.Items.Count == 0 ? "Nada na biblioteca ainda. Use Adicionar arquivo para colocar um vídeo, imagem ou página." : "Nada com esse filtro.", Style = (Style)FindResource("Muted"), Margin = new Thickness(2, 8, 0, 0) });
     }
 
+    readonly HashSet<string> _tagFilter = new();
+    readonly HashSet<string> _ratingFilter = new();
+
+    /// <summary>One chip per tag of the current type filter, most used first, then the ratings, then Limpar.</summary>
+    void RenderTagFilters(List<LibraryItem> ofType)
+    {
+        TagFilters.Children.Clear();
+        var groups = ofType.SelectMany(i => i.Tags.Select(t => (key: Tags.Key(t), name: t, item: i.Id)))
+            .Where(x => x.key.Length > 0)
+            .GroupBy(x => x.key)
+            .Select(g => (key: g.Key, name: g.First().name, count: g.Select(x => x.item).Distinct().Count()))
+            .OrderByDescending(g => g.count).ThenBy(g => g.name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        // A checked tag that the current type filter no longer has stays visible, so it can be unchecked.
+        foreach (string key in _tagFilter.Where(k => groups.All(g => g.key != k)).ToList())
+            groups.Add((key, _scan.Items.SelectMany(i => i.Tags).FirstOrDefault(t => Tags.Key(t) == key) ?? key, 0));
+        foreach (var g in groups)
+            TagFilters.Children.Add(Chip(g.name, g.count, _tagFilter.Contains(g.key), on => { if (on) _tagFilter.Add(g.key); else _tagFilter.Remove(g.key); }));
+
+        var ratings = Tags.RatingOrder.Select(r => (name: r, count: ofType.Count(i => i.Rating == r))).Where(r => r.count > 0 || _ratingFilter.Contains(r.name)).ToList();
+        if (ratings.Count > 0)
+        {
+            // One block, so the label never ends a line apart from its chips.
+            var group = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 0, 0) };
+            group.Children.Add(new TextBlock { Text = "Classificação", Style = (Style)FindResource("Label"), Margin = new Thickness(0, 0, 8, 6), VerticalAlignment = VerticalAlignment.Center });
+            foreach (var r in ratings)
+                group.Children.Add(Chip(r.name, r.count, _ratingFilter.Contains(r.name), on => { if (on) _ratingFilter.Add(r.name); else _ratingFilter.Remove(r.name); }));
+            TagFilters.Children.Add(group);
+        }
+        if (_tagFilter.Count + _ratingFilter.Count > 0)
+        {
+            var clear = new Button { Content = "Limpar", Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 6) };
+            clear.Click += (_, _) => { _tagFilter.Clear(); _ratingFilter.Clear(); RenderLibrary(); };
+            TagFilters.Children.Add(clear);
+        }
+    }
+
+    FrameworkElement Chip(string name, int count, bool on, Action<bool> toggled)
+    {
+        var content = new StackPanel { Orientation = Orientation.Horizontal };
+        content.Children.Add(new TextBlock { Text = name });
+        content.Children.Add(new TextBlock { Text = " " + count, Opacity = 0.6 });
+        var chip = new System.Windows.Controls.Primitives.ToggleButton { Content = content, IsChecked = on, Style = (Style)FindResource("Chip") };
+        chip.Click += (_, _) => { toggled(chip.IsChecked == true); Dispatcher.BeginInvoke(RenderLibrary); };
+        return chip;
+    }
+
+    /// <summary>Every tag that exists anywhere in the library, for the editor's suggestions.</summary>
+    IEnumerable<string> AllTags() => _scan.Items.SelectMany(i => i.Tags);
+
     double _cardWidth = 212;
 
     void LibraryScroll_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -286,7 +340,9 @@ public partial class SettingsWindow : Window
         // Cards stretch so each row fills the width exactly, whatever the window size.
         const double gap = 14, ideal = 210;
         // Every card carries its right margin, the last one included, so a row needs columns * (width + gap).
-        double available = (LibraryScroll.ViewportWidth > 0 ? LibraryScroll.ViewportWidth : LibraryScroll.ActualWidth - 18) - 1;
+        // The scroll bar's room is always reserved: it shows up only after the cards are in, and taking those
+        // pixels then would push the last column to the next row.
+        double available = LibraryScroll.ActualWidth - 14;
         if (available <= 0) return;
         int columns = Math.Max(1, (int)(available / (ideal + gap)));
         double width = Math.Floor(available / columns - gap);
@@ -312,7 +368,8 @@ public partial class SettingsWindow : Window
         bool here = SelectedAssignment?.ItemId == item.Id;
 
         var text = new StackPanel { Margin = new Thickness(12, 9, 12, 11) };
-        text.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = item.Title });
+        string tip = item.Title + (item.Tags.Count > 0 ? "\n" + string.Join(" · ", item.Tags) : "") + (item.Rating != null ? "\nClassificação: " + item.Rating : "");
+        text.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = tip });
         string meta = TypeName(item.Type) + (item.FromWallpaperEngine ? " · Wallpaper Engine" : " · seu arquivo");
         text.Children.Add(new TextBlock { Text = meta, FontSize = 11.5, Foreground = (Brush)FindResource("Ink3"), Margin = new Thickness(0, 2, 0, 0) });
         if (onMonitors.Count > 0)
@@ -336,6 +393,9 @@ public partial class SettingsWindow : Window
         menu.Items.Add(open);
         if (!item.FromWallpaperEngine)
         {
+            var tags = new MenuItem { Header = "Editar tags" };
+            tags.Click += (_, _) => EditTags(item);
+            menu.Items.Add(tags);
             var remove = new MenuItem { Header = "Tirar da biblioteca" };
             remove.Click += (_, _) =>
             {
@@ -346,6 +406,19 @@ public partial class SettingsWindow : Window
         }
         card.ContextMenu = menu;
         return card;
+    }
+
+    void EditTags(LibraryItem item)
+    {
+        var editor = new TagEditor(this, item.Title, item.Tags, AllTags());
+        if (editor.ShowDialog() != true) return;
+        var result = editor.Result.ToList();
+        Mutate(c =>
+        {
+            var u = c.UserItems.FirstOrDefault(x => x.Id == item.Id);
+            if (u != null) u.Tags = result;
+        });
+        ReloadLibrary();
     }
 
     static string TypeName(WallpaperType t) => t switch { WallpaperType.Video => "Vídeo", WallpaperType.Web => "Web", _ => "Imagem" };
@@ -434,6 +507,7 @@ public partial class SettingsWindow : Window
                     PropertiesSection.Visibility = Visibility.Visible;
             }
             _ = UpdateOptimizeAsync(m, a);
+            _ = UpdateFpsLineAsync(m, a);
         }
         finally { _loading = false; }
     }
@@ -502,6 +576,42 @@ public partial class SettingsWindow : Window
     }
 
     // ------------------------------------------------------------------ optimize (convert to monitor size)
+
+    /// <summary>Says what the wallpaper on this monitor really runs at, and why; video keeps the frame rate it was made with.</summary>
+    async Task UpdateFpsLineAsync(MonitorInfo m, MonitorAssignment a)
+    {
+        SideFps.Text = "";
+        if (m == null || a == null) return;
+        int hz = (int)Math.Round(m.RefreshRate);
+        switch (a.Type)
+        {
+            case WallpaperType.Web:
+                int fps = _config.EffectiveFps(m.RefreshRate);
+                SideFps.Text = fps < _config.FpsLimit
+                    ? $"Roda a {fps} fps, o máximo deste monitor ({hz} Hz)."
+                    : $"Roda a {fps} fps, o limite escolhido em Ajustes.";
+                break;
+            case WallpaperType.Image:
+                SideFps.Text = "Imagem parada: não desenha quadro nenhum.";
+                break;
+            case WallpaperType.Video:
+                string file = a.File;
+                double rate = 0;
+                try
+                {
+                    var f = await Windows.Storage.StorageFile.GetFileFromPathAsync(file);
+                    var props = await f.Properties.RetrievePropertiesAsync(new[] { "System.Video.FrameRate" });
+                    // Stored as frames per 1000 seconds.
+                    if (props.TryGetValue("System.Video.FrameRate", out object v) && v is uint milli) rate = milli / 1000.0;
+                }
+                catch (Exception e) { Log.Write("frame rate: " + e.Message); }
+                if (SelectedAssignment?.File != file) return;
+                SideFps.Text = rate > 0
+                    ? $"Vídeo toca no fps em que foi gravado ({rate:0.##} fps); o limite de fps não muda vídeo."
+                    : "Vídeo toca no fps em que foi gravado; o limite de fps não muda vídeo.";
+                break;
+        }
+    }
 
     async Task UpdateOptimizeAsync(MonitorInfo m, MonitorAssignment a)
     {
@@ -645,6 +755,18 @@ public partial class SettingsWindow : Window
             ThemeSystem.IsChecked = _config.Theme == AppTheme.System;
             ThemeLight.IsChecked = _config.Theme == AppTheme.Light;
             ThemeDark.IsChecked = _config.Theme == AppTheme.Dark;
+            FpsChoices.Children.Clear();
+            foreach (int fps in AppConfig.FpsChoices)
+            {
+                var choice = new RadioButton
+                {
+                    Content = fps.ToString(CultureInfo.InvariantCulture), GroupName = "fps", Style = (Style)FindResource("Segment"),
+                    IsChecked = _config.FpsLimit == fps, Tag = fps,
+                };
+                if (fps == AppConfig.FpsChoices[^1]) choice.Margin = new Thickness(0);
+                choice.Checked += Fps_Checked;
+                FpsChoices.Children.Add(choice);
+            }
             VersionText.Text = $"Versão {AppPaths.Version}" + (AppPaths.IsDevelopmentCopy ? " · cópia de desenvolvimento (atualiza pelo git e pelo compilar.ps1)" : "");
             TokenText.Text = string.IsNullOrEmpty(Secrets.GitHubToken)
                 ? "Token de leitura (fine-grained, só este repositório, Contents: leitura). Fica guardado protegido pelo Windows, fora do app."
@@ -668,6 +790,14 @@ public partial class SettingsWindow : Window
         });
         Notify("settings");
         if (scanBefore != _config.ScanWallpaperEngine) ReloadLibrary();
+    }
+
+    void Fps_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_loading || !IsLoaded || sender is not RadioButton { Tag: int fps }) return;
+        Mutate(c => c.FpsLimit = fps);
+        Notify("settings");
+        _ = UpdateFpsLineAsync(SelectedMonitor, SelectedAssignment);
     }
 
     void Theme_Checked(object sender, RoutedEventArgs e)
@@ -732,6 +862,56 @@ public partial class SettingsWindow : Window
     {
         switch (script)
         {
+            case "tags":
+            {
+                // argument: a file to add as the user's own; gets the tags "anime" (must become the existing "Anime") and "Meu".
+                Mutate(c =>
+                {
+                    string id = Library.IdFor(argument);
+                    c.UserItems.RemoveAll(u => u.Id == id);
+                    var existing = AllTags().ToList();
+                    c.UserItems.Add(new UserItem
+                    {
+                        Id = id, File = argument, Type = Library.TypeForFile(argument) ?? WallpaperType.Video, Title = "Teste de tags",
+                        Added = DateTime.Now, Tags = new List<string> { Tags.Canonical("anime", existing), Tags.Canonical("Meu", existing) },
+                    });
+                });
+                ReloadLibrary();
+                _tagFilter.Add(Tags.Key("Anime"));
+                _ratingFilter.Add("Livre");
+                RenderLibrary();
+                int both = LibraryList.Items.OfType<FrameworkElement>().Count(x => x is Border);
+                _ratingFilter.Clear();
+                RenderLibrary();
+                int anime = LibraryList.Items.OfType<FrameworkElement>().Count(x => x is Border);
+                var mine = ConfigStore.Load().UserItems.First(u => u.Title == "Teste de tags");
+                Log.Write($"selftest tags: Anime+Livre={both} Anime={anime} chips={TagFilters.Children.Count} saved=[{string.Join(", ", mine.Tags)}]");
+                break;
+            }
+            case "tageditor":
+            {
+                // Opens the editor off-screen for one of the user's files, types like a person would, saves a picture of it.
+                var own = _scan.Items.First(i => !i.FromWallpaperEngine);
+                var editor = new TagEditor(this, own.Title, own.Tags, AllTags()) { WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, ShowActivated = false };
+                editor.Show();
+                string suggestions = string.Join(", ", editor.Suggest("na"));
+                editor.Type("ANIME");
+                editor.Type("Relaxante");
+                Log.Write($"selftest tageditor: suggestions for 'na' = [{suggestions}] result=[{string.Join(", ", editor.Result)}]");
+                editor.UpdateLayout();
+                var root = (FrameworkElement)editor.Content;
+                double scale = VisualTreeHelper.GetDpi(editor).DpiScaleX;
+                var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap((int)(root.ActualWidth * scale), (int)(root.ActualHeight * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+                var bg = new DrawingVisual();
+                using (var dc = bg.RenderOpen()) dc.DrawRectangle((Brush)FindResource("Paper"), null, new Rect(0, 0, root.ActualWidth, root.ActualHeight));
+                bmp.Render(bg);
+                bmp.Render(root);
+                var png = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+                using (var fs = File.Create(Path.Combine(AppPaths.Local, "tageditor.png"))) png.Save(fs);
+                editor.Close();
+                break;
+            }
             case "theme":
                 // argument: light | dark, chosen with the same radio button a click would use.
                 (argument == "dark" ? ThemeDark : ThemeLight).IsChecked = true;

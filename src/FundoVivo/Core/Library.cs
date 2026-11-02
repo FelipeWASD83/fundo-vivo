@@ -16,6 +16,10 @@ public sealed class LibraryItem
     public bool HasProperties { get; init; }
     public string ContentRating { get; init; }
     public DateTime Date { get; init; }
+    /// <summary>As shown: Wallpaper Engine tags in Portuguese, the user's own as typed.</summary>
+    public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+    /// <summary>Livre, Questionável, Adulto, or null when the project does not say.</summary>
+    public string Rating { get; init; }
 }
 
 public sealed class LibraryScan
@@ -61,6 +65,7 @@ public static class Library
             {
                 Id = u.Id, Title = u.Title, Type = u.Type, File = u.File, Folder = Path.GetDirectoryName(u.File),
                 Preview = u.Type == WallpaperType.Image ? u.File : null, Date = u.Added,
+                Tags = (u.Tags ?? new List<string>()).Where(t => !string.IsNullOrWhiteSpace(t)).ToList(),
             });
         }
         return scan;
@@ -87,6 +92,8 @@ public static class Library
             Preview = preview != null && System.IO.File.Exists(preview) ? preview : null,
             FromWallpaperEngine = true, HasProperties = project.Properties.Count > 0, ContentRating = project.ContentRating,
             Date = Directory.GetLastWriteTime(dir),
+            Tags = project.Tags.Select(FundoVivo.Core.Tags.FromWallpaperEngine).Where(t => t != null).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            Rating = FundoVivo.Core.Tags.Rating(project.ContentRating),
         });
     }
 
@@ -137,6 +144,7 @@ public sealed class WeProject
     public string Preview { get; init; }
     public string ContentRating { get; init; }
     public bool SupportsAudio { get; init; }
+    public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
     public JsonObject Properties { get; init; } = new();
     public Dictionary<string, string> Strings { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -171,6 +179,7 @@ public sealed class WeProject
                 Preview = root["preview"]?.ToString(),
                 ContentRating = root["contentrating"]?.ToString(),
                 SupportsAudio = general?["supportsaudioprocessing"]?.GetValueKind() == System.Text.Json.JsonValueKind.True,
+                Tags = (root["tags"] as JsonArray)?.Select(n => n?.ToString()).Where(s => !string.IsNullOrWhiteSpace(s)).ToList() ?? new List<string>(),
                 Properties = (JsonObject)props.DeepClone(),
                 Strings = strings,
             };

@@ -35,6 +35,7 @@ public sealed class UserItem
     public WallpaperType Type { get; set; }
     public string File { get; set; }
     public DateTime Added { get; set; }
+    public List<string> Tags { get; set; } = new();
 }
 
 public sealed class PauseSettings
@@ -67,6 +68,18 @@ public sealed class AppConfig
     public bool PausedByUser { get; set; }
     public bool ScanWallpaperEngine { get; set; } = true;
     public AppTheme Theme { get; set; } = AppTheme.System;
+    /// <summary>Frame-rate cap for live wallpapers (web, and the app's own format later). The monitor's rate still wins when lower.</summary>
+    public int FpsLimit { get; set; } = 60;
+
+    public static readonly int[] FpsChoices = { 30, 60, 120, 144, 160 };
+
+    /// <summary>What a live wallpaper on this monitor actually runs at.</summary>
+    public int EffectiveFps(double monitorHz)
+    {
+        int hz = monitorHz >= 20 ? (int)Math.Round(monitorHz) : 60;
+        int cap = FpsChoices.Contains(FpsLimit) ? FpsLimit : 60;
+        return Math.Min(cap, hz);
+    }
 
     public ItemSettings SettingsFor(string itemId)
     {

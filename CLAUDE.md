@@ -53,6 +53,17 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   paletas e sempre como `DynamicResource`. `FUNDOVIVO_THEME=light|dark` força um nas fotos de teste, e
   `--screenshot ... theme dark` testa a troca ao vivo.
 
+- **Tags** (`Core/Tags.cs`): as do Wallpaper Engine (`tags` do `project.json`, vocabulário fixo em inglês) aparecem
+  traduzidas; as do usuário ficam em `UserItem.Tags`. Tudo se compara por `Tags.Key` (sem maiúscula nem acento), e
+  `Tags.Canonical` faz a tag digitada pegar a grafia que já existe. `contentrating` vira Livre/Questionável/Adulto. No
+  filtro, tags marcadas valem juntas (E) e classificações marcadas valem qualquer uma (OU).
+- **Limite de fps** (`AppConfig.FpsLimit`, 30/60/120/144/160, padrão 60; `EffectiveFps` = o menor entre ele e a taxa
+  do monitor): o motor passa para o web em `applyGeneralProperties` **e** o `web-shim.js` segura o
+  `requestAnimationFrame` da página nesse ritmo, porque só 4 dos 23 web da biblioteca dele leem o fps da API e 13
+  desenham por rAF. O valor inicial vai escrito no lugar do marcador `/*FPS*/0` do shim, então vale desde o primeiro
+  quadro. CSS e laços por timer não obedecem (dito na interface). Vídeo toca no fps do arquivo; o painel lê
+  `System.Video.FrameRate`. Medido: 60 → 60 quadros/s nos dois monitores; 160 → 161 no de 250 Hz e 145 no de 144 Hz.
+
 ## 2. Comandos
 
 - Compilar e atualizar `app\`: `powershell -ExecutionPolicy Bypass -File ferramentas\compilar.ps1`

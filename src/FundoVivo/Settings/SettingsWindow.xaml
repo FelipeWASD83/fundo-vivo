@@ -66,6 +66,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <Grid>
@@ -89,8 +90,10 @@
                     </Grid>
                     <Button Grid.Column="2" Content="Adicionar arquivo" Click="AddFile_Click"/>
                 </Grid>
-                <TextBlock x:Name="LibraryInfo" Grid.Row="1" Style="{StaticResource Muted}" Margin="2,10,0,10"/>
-                <ScrollViewer x:Name="LibraryScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly" SizeChanged="LibraryScroll_SizeChanged">
+                <!-- Tag chips: the Wallpaper Engine tags, the user's own and the content rating. -->
+                <WrapPanel x:Name="TagFilters" Grid.Row="1" Margin="0,12,0,0"/>
+                <TextBlock x:Name="LibraryInfo" Grid.Row="2" Style="{StaticResource Muted}" Margin="2,10,0,10"/>
+                <ScrollViewer x:Name="LibraryScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly" SizeChanged="LibraryScroll_SizeChanged">
                     <ItemsControl x:Name="LibraryList">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -115,6 +118,7 @@
                         </Border>
                         <TextBlock x:Name="SideTitle" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"/>
                         <TextBlock x:Name="SideDetail" Style="{StaticResource Muted}" Margin="0,2,0,0"/>
+                        <TextBlock x:Name="SideFps" Style="{StaticResource Muted}" Margin="0,2,0,0"/>
 
                         <StackPanel x:Name="SideControls">
                             <TextBlock Text="ENCAIXE" Style="{StaticResource Label}"/>
@@ -197,6 +201,13 @@
                         <TextBlock Text="Os cliques na área de trabalho vazia chegam no wallpaper, como no Wallpaper Engine." Style="{StaticResource Muted}" Margin="44,0,0,8"/>
                         <CheckBox x:Name="WebAudio" Content="Reagir ao som que o PC está tocando" Click="Option_Changed"/>
                         <TextBlock Text="Para os visualizadores de música. Só escuta enquanto um wallpaper que pede som está na tela." Style="{StaticResource Muted}" Margin="44,0,0,0"/>
+
+                        <TextBlock Text="QUADROS POR SEGUNDO" Style="{StaticResource Label}" Margin="0,18,0,6"/>
+                        <Border Style="{StaticResource SegmentBar}">
+                            <StackPanel x:Name="FpsChoices" Orientation="Horizontal"/>
+                        </Border>
+                        <TextBlock Style="{StaticResource Muted}" Margin="0,8,0,0"
+                                   Text="Vale para o que desenha ao vivo (os wallpapers web). Nunca passa da taxa do monitor: 160 num monitor de 144 Hz roda a 144. Vídeo toca no fps em que foi gravado, e página que anima por CSS ou por relógio próprio não obedece."/>
 
                         <TextBlock Text="Biblioteca" Style="{StaticResource H2}" Margin="0,22,0,8"/>
                         <CheckBox x:Name="ScanWe" Content="Mostrar os wallpapers do Wallpaper Engine" Click="Option_Changed"/>
