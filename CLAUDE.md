@@ -1,0 +1,96 @@
+# CLAUDE.md: fundo-vivo
+
+Papel de parede animado leve para o Windows 11 (vídeo, imagem, web), no lugar do Wallpaper Engine para esses três
+tipos. Criado em 02/11/2026. Código em inglês; interface, documentação, changelog e commits em português.
+Versão: `<Version>` do `src/FundoVivo/FundoVivo.csproj`, igual ao topo do `CHANGELOG.md`.
+
+A pesquisa que decidiu a tecnologia, com as medições: `docs/pesquisa-wallpaper-animado-leve.md`.
+
+## 1. Como roda
+
+```
+atalho / FundoVivo.exe (sem argumento) ─► sobe o motor (FundoVivo.exe --engine) se não estiver rodando ─► abre a janela (WPF)
+motor: janela escondida "FundoVivoEngine" ─► uma WallpaperWindow por monitor, filha do WorkerW ─► conteúdo Video | Image | Web
+janela ─► grava %APPDATA%\FundoVivo\config.json ─► WM_COPYDATA {"cmd":"reload"|"settings"|"quit"} ─► motor
+motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─► janela lê a cada 1,5 s
+```
+
+- **Dois processos de propósito**: o motor nunca carrega WPF; a janela de ajustes só existe enquanto está aberta.
+- **Onde o wallpaper mora** (`Engine/Desktop.cs`): no 24H2 em diante o `Progman` tem `WS_EX_NOREDIRECTIONBITMAP` e o
+  `WorkerW` é filho dele; antes, é o `WorkerW` de topo logo atrás do que tem o `SHELLDLL_DefView`. A janela do
+  wallpaper vai dentro desse `WorkerW`, por cima de tudo que já estiver lá (o papel de parede do Windows ou o
+  Wallpaper Engine). Conferido no PC dele (build 26300): é o mesmo lugar onde o Wallpaper Engine pendura a janela.
+- **Vídeo** (`VideoWallpaper`): `Windows.Media.Playback.MediaPlayer` com `GetSurface(compositor)` num
+  `DesktopWindowTarget` do Windows.UI.Composition. `CommandManager.IsEnabled = false` tira o wallpaper do painel de
+  mídia do Windows e das teclas de mídia. **Não trocar por VLC, mpv ou MediaElement** (pesquisa: mais pesado, ou DLL
+  nativa sem assinatura que o Smart App Control barra).
+- **Imagem** (`ImageWallpaper`): decodifica pelo `BitmapDecoder` do WinRT já no tamanho do monitor (com o corte do
+  Preencher) e sobe uma vez numa drawing surface; o D3D11 só é criado quando aparece a primeira imagem. GIF animado
+  mostra só o primeiro quadro.
+- **Web** (`WebWallpaper`): WebView2, um nome de host virtual por wallpaper (o `localStorage` não se mistura),
+  `web-shim.js` injetado antes da página recria a API do Wallpaper Engine: `wallpaperPropertyListener`
+  (`applyUserProperties`, `applyGeneralProperties` com o fps do monitor, `setPaused`) e
+  `wallpaperRegisterAudioListener` (128 valores: 64 faixas do canal esquerdo e 64 do direito, ~30 por segundo).
+  Os listeners de mídia (capa, título da música) são aceitos e ficam mudos. Pausar = `setPaused(true)`, controller
+  invisível, `TrySuspendAsync` e memória em `Low`.
+- **Áudio** (`AudioSpectrum`): loopback WASAPI por COM direto, sem NAudio; só roda enquanto um wallpaper web pediu
+  áudio, não está pausado e a opção está ligada.
+- **Mouse** (`EngineHost.OnRawInput`): raw input com `RIDEV_INPUTSINK`, ligado só quando há wallpaper web; se o que
+  está embaixo do cursor é a própria área de trabalho, repassa para o `Chrome_RenderWidgetHostHWND` do WebView2.
+- **Pausa** (`PauseMonitor`): a cada 1 s e logo depois de troca de janela em primeiro plano, minimizar ou fim de
+  arrastar. Janela visível que cobre o monitor inteiro = tela cheia; que cobre a área de trabalho = coberto. Ignora
+  sobreposições que deixam o clique passar (GeForce, Steam, Discord), janelas de ferramenta, translúcidas e as do
+  shell. `SHQueryUserNotificationState` (jogo D3D, apresentação) também conta como tela cheia. Por padrão, tela cheia
+  num monitor pausa todos (a 3060 dele é o gargalo nos jogos).
+- **Explorer reiniciado**: a mensagem `TaskbarCreated` recria o ícone da bandeja e refaz os wallpapers.
+- **Monitores** (`Core/Monitors.cs`): o id estável é o caminho do monitor do `QueryDisplayConfig`
+  (`\\?\DISPLAY#AUS342B#...`), não o `\\.\DISPLAYn`, que muda com a ordem dos cabos.
+
+## 2. Comandos
+
+- Compilar e atualizar `app\`: `powershell -ExecutionPolicy Bypass -File ferramentas\compilar.ps1`
+- Fechar o motor: `app\FundoVivo.exe --quit`
+- Diagnóstico (escreve no `describe.log`): `app\FundoVivo.exe --describe`
+- Publicar versão (decisão dele): subir `<Version>` e o `CHANGELOG.md`, commit, push, `ferramentas\publicar-versao.ps1`.
+
+## 3. Decisões que não se desfazem sem motivo
+
+- **Smart App Control barra DLL .NET também** (02/11/2026, contra o que a nota antiga do ambiente dizia): o mesmo
+  projeto passou numa compilação e foi barrado na seguinte, por hash. Por isso **só compilar pelo `compilar.ps1`**:
+  cada tentativa leva um carimbo sorteado em `SourceRevisionId` (muda o hash da DLL e do .exe, que herda a versão do
+  assembly), o `FundoVivo.exe --check-load` carrega cada DLL e, se o Windows barrar, o script sorteia outro. As DLLs
+  de pacote (WebView2, WinRT) são assinadas pela Microsoft e passam.
+- **Release**: o pacote é a pasta `build\publish` compilada aqui (o hash que passou no PC dele). O atualizador
+  (`Core/Updater.cs`) exige o SHA-256 que o GitHub informa no asset, troca a pasta por um script PowerShell fora do
+  app e volta para a anterior se a nova não gravar `started.txt` em 25 s. Na cópia de desenvolvimento (tem `.git` do
+  lado de `app\`) ele recusa e manda usar git e `compilar.ps1`, como o Clave.
+- **Cena do Wallpaper Engine fica de fora**: formato proprietário (`scene.pkg`, texturas `.tex`, shaders próprios).
+  Não prometer suporte.
+- **Configuração sempre relida antes de gravar** (`SettingsWindow.Mutate`): o motor grava o "pausar tudo" do ícone da
+  bandeja no mesmo arquivo.
+- **Conversão** (`Core/VideoConverter.cs`): ffmpeg do PATH, `h264_nvenc` e, se falhar, `libx264`; a cópia vai para
+  `%LOCALAPPDATA%\FundoVivo\converted` e vale só para aquele tamanho de monitor, aquele encaixe e aquele tamanho de
+  arquivo original. O original nunca é mexido.
+
+## 4. Testar sem mexer na tela dele
+
+Pendurar na área de trabalho de verdade troca o papel de parede dele enquanto roda: **só com o OK dele**. Para o
+resto:
+
+- `FUNDOVIVO_HOME=<pasta>` muda toda a configuração e os dados para `<pasta>\roaming` e `<pasta>\local`.
+- `FUNDOVIVO_TEST_LAYER=offscreen` (com o `HOME` acima) usa uma janela fora de todos os monitores no lugar do
+  `WorkerW`; também não cria o ícone da bandeja. Mede decodificação e renderização, não a apresentação na tela.
+- `FUNDOVIVO_TEST_NOPAUSE=1` ignora a regra de pausa (senão um jogo aberto pausa tudo e a medição sai zerada).
+- `FundoVivo.exe --screenshot <png> library|settings <largura> <altura> [assign <trecho da pasta>]` renderiza a janela
+  num PNG fora da tela; com `assign`, põe aquele wallpaper no primeiro monitor que não é o principal, como um clique.
+  Isso sobe o motor: deixe o `TEST_LAYER=offscreen` ligado junto.
+- Em modo de teste o wallpaper web grava no `engine.log`, 8 s depois de abrir, os contadores do `web-shim.js`
+  (`audioFrames`, `propsApplied`, `generalApplied`) e se achou a janela que recebe o mouse.
+- **Armadilha**: no PowerShell 5.1, `Start-Process -Wait` espera os processos filhos também. A janela abre o motor,
+  então `-Wait` nela trava até o motor fechar. Use `-PassThru` e `WaitForExit(ms)`.
+
+## 5. Pendente
+
+- Testar pendurado na área de trabalho de verdade (com o OK dele): os dois monitores, a pausa com jogo de verdade, o
+  "Tirar da memória", o mouse num wallpaper interativo e o Explorer reiniciando.
+- Repositório no GitHub e primeira release.

@@ -1,0 +1,232 @@
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+using Microsoft.Win32;
+
+namespace FundoVivo.Core;
+
+public sealed class LibraryItem
+{
+    public string Id { get; init; }
+    public string Title { get; init; }
+    public WallpaperType Type { get; init; }
+    public string File { get; init; }
+    public string Folder { get; init; }
+    public string Preview { get; init; }
+    public bool FromWallpaperEngine { get; init; }
+    public bool HasProperties { get; init; }
+    public string ContentRating { get; init; }
+    public DateTime Date { get; init; }
+}
+
+public sealed class LibraryScan
+{
+    public List<LibraryItem> Items { get; } = new();
+    public int SkippedScenes { get; set; }
+    public int SkippedOther { get; set; }
+    public bool FoundWallpaperEngine { get; set; }
+}
+
+public static class Library
+{
+    public static readonly string[] VideoExtensions = { ".mp4", ".m4v", ".mov", ".webm", ".mkv", ".wmv", ".avi" };
+    public static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp", ".tif", ".tiff", ".jxr", ".heic", ".avif" };
+    public static readonly string[] WebExtensions = { ".html", ".htm" };
+
+    public static string IdFor(string file) => Path.GetFullPath(file).ToLowerInvariant();
+
+    public static WallpaperType? TypeForFile(string file)
+    {
+        string ext = Path.GetExtension(file).ToLowerInvariant();
+        if (VideoExtensions.Contains(ext)) return WallpaperType.Video;
+        if (ImageExtensions.Contains(ext)) return WallpaperType.Image;
+        if (WebExtensions.Contains(ext)) return WallpaperType.Web;
+        return null;
+    }
+
+    public static LibraryScan Scan(AppConfig config)
+    {
+        var scan = new LibraryScan();
+        if (config.ScanWallpaperEngine)
+        {
+            foreach (string root in WallpaperEngineFolders())
+            {
+                scan.FoundWallpaperEngine = true;
+                foreach (string dir in SafeDirs(root)) AddProject(scan, dir);
+            }
+        }
+        foreach (var u in config.UserItems)
+        {
+            if (!System.IO.File.Exists(u.File)) continue;
+            scan.Items.Add(new LibraryItem
+            {
+                Id = u.Id, Title = u.Title, Type = u.Type, File = u.File, Folder = Path.GetDirectoryName(u.File),
+                Preview = u.Type == WallpaperType.Image ? u.File : null, Date = u.Added,
+            });
+        }
+        return scan;
+    }
+
+    static void AddProject(LibraryScan scan, string dir)
+    {
+        var project = WeProject.Load(dir);
+        if (project == null) return;
+        WallpaperType type;
+        switch (project.Type)
+        {
+            case "video": type = WallpaperType.Video; break;
+            case "web": type = WallpaperType.Web; break;
+            case "scene": scan.SkippedScenes++; return;
+            default: scan.SkippedOther++; return;
+        }
+        string file = Path.Combine(dir, project.File ?? "");
+        if (!System.IO.File.Exists(file)) { scan.SkippedOther++; return; }
+        string preview = project.Preview == null ? null : Path.Combine(dir, project.Preview);
+        scan.Items.Add(new LibraryItem
+        {
+            Id = IdFor(file), Title = project.Title, Type = type, File = file, Folder = dir,
+            Preview = preview != null && System.IO.File.Exists(preview) ? preview : null,
+            FromWallpaperEngine = true, HasProperties = project.Properties.Count > 0, ContentRating = project.ContentRating,
+            Date = Directory.GetLastWriteTime(dir),
+        });
+    }
+
+    static IEnumerable<string> SafeDirs(string root)
+    {
+        try { return Directory.GetDirectories(root); } catch { return Array.Empty<string>(); }
+    }
+
+    /// <summary>Workshop downloads and the user's own Wallpaper Engine projects, across every Steam library.</summary>
+    public static IEnumerable<string> WallpaperEngineFolders()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string lib in SteamLibraries())
+        {
+            foreach (string sub in new[] { @"steamapps\workshop\content\431960", @"steamapps\common\wallpaper_engine\projects\myprojects" })
+            {
+                string dir = Path.Combine(lib, sub);
+                if (Directory.Exists(dir) && seen.Add(Path.GetFullPath(dir))) yield return dir;
+            }
+        }
+    }
+
+    static IEnumerable<string> SteamLibraries()
+    {
+        string steam = null;
+        try { steam = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) as string; } catch { }
+        steam ??= @"C:\Program Files (x86)\Steam";
+        steam = steam.Replace('/', '\\');
+        var libs = new List<string> { steam };
+        string vdf = Path.Combine(steam, @"steamapps\libraryfolders.vdf");
+        try
+        {
+            foreach (Match m in Regex.Matches(System.IO.File.ReadAllText(vdf), "\"path\"\\s+\"(.+?)\""))
+                libs.Add(m.Groups[1].Value.Replace(@"\\", @"\"));
+        }
+        catch { }
+        return libs.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+}
+
+/// <summary>The parts of a Wallpaper Engine project.json this app uses.</summary>
+public sealed class WeProject
+{
+    public string Folder { get; init; }
+    public string Title { get; init; }
+    public string Type { get; init; }
+    public string File { get; init; }
+    public string Preview { get; init; }
+    public string ContentRating { get; init; }
+    public bool SupportsAudio { get; init; }
+    public JsonObject Properties { get; init; } = new();
+    public Dictionary<string, string> Strings { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public static WeProject Load(string folder)
+    {
+        string path = Path.Combine(folder, "project.json");
+        if (!System.IO.File.Exists(path)) return null;
+        try
+        {
+            var root = JsonNode.Parse(System.IO.File.ReadAllText(path), documentOptions: new System.Text.Json.JsonDocumentOptions
+            {
+                AllowTrailingCommas = true, CommentHandling = System.Text.Json.JsonCommentHandling.Skip,
+            })?.AsObject();
+            if (root == null) return null;
+            var general = root["general"] as JsonObject;
+            var props = general?["properties"] as JsonObject ?? new JsonObject();
+            var strings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (general?["localization"] is JsonObject loc)
+            {
+                // Portuguese when the author shipped it, English otherwise.
+                foreach (string lang in new[] { "en-us", "pt-br" })
+                    if (loc[lang] is JsonObject table)
+                        foreach (var kv in table) strings[kv.Key] = kv.Value?.ToString() ?? "";
+            }
+            string title = root["title"]?.ToString();
+            return new WeProject
+            {
+                Folder = folder,
+                Title = string.IsNullOrWhiteSpace(title) ? Path.GetFileName(folder) : title.Trim(),
+                Type = root["type"]?.ToString()?.Trim().ToLowerInvariant(),
+                File = root["file"]?.ToString(),
+                Preview = root["preview"]?.ToString(),
+                ContentRating = root["contentrating"]?.ToString(),
+                SupportsAudio = general?["supportsaudioprocessing"]?.GetValueKind() == System.Text.Json.JsonValueKind.True,
+                Properties = (JsonObject)props.DeepClone(),
+                Strings = strings,
+            };
+        }
+        catch (Exception e)
+        {
+            Log.Write($"project.json unreadable in {folder}: {e.Message}");
+            return null;
+        }
+    }
+
+    static readonly Dictionary<string, string> BuiltIn = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ui_browse_properties_scheme_color"] = "Cor do tema",
+        ["ui_browse_properties_alignment"] = "Alinhamento",
+        ["ui_browse_properties_alignment_center"] = "Centro",
+        ["ui_browse_properties_alignment_left"] = "Esquerda",
+        ["ui_browse_properties_alignment_right"] = "Direita",
+        ["ui_browse_properties_alignment_top"] = "Topo",
+        ["ui_browse_properties_alignment_bottom"] = "Embaixo",
+        ["ui_browse_properties_background_color"] = "Cor de fundo",
+        ["ui_browse_properties_image"] = "Imagem",
+        ["ui_browse_properties_volume"] = "Volume",
+        ["ui_browse_properties_playback_rate"] = "Velocidade",
+    };
+
+    /// <summary>Wallpaper Engine labels are often localization keys or carry HTML; this returns plain text.</summary>
+    public string Text(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        if (Strings.TryGetValue(raw, out var t)) raw = t;
+        else if (raw.StartsWith("ui_", StringComparison.OrdinalIgnoreCase))
+        {
+            // Keys from Wallpaper Engine's own interface, which projects reference without shipping the text.
+            if (BuiltIn.TryGetValue(raw, out var known)) return known;
+            string rest = Regex.Replace(raw, "^ui_(browse_properties_|editor_properties_)?", "", RegexOptions.IgnoreCase).Replace('_', ' ');
+            return rest.Length == 0 ? raw : char.ToUpper(rest[0]) + rest[1..];
+        }
+        raw = Regex.Replace(raw, @"<br\s*/?>", " ", RegexOptions.IgnoreCase);
+        raw = Regex.Replace(raw, "<[^>]+>", "");
+        return System.Net.WebUtility.HtmlDecode(raw).Trim();
+    }
+
+    /// <summary>The values handed to applyUserProperties: the project defaults with the user's changes on top.</summary>
+    public JsonObject UserProperties(ItemSettings settings)
+    {
+        var result = new JsonObject();
+        foreach (var kv in Properties)
+        {
+            if (kv.Value is not JsonObject p) continue;
+            var entry = new JsonObject();
+            if (p["type"] != null) entry["type"] = p["type"].DeepClone();
+            JsonNode value = settings != null && settings.Properties.TryGetValue(kv.Key, out var v) ? v : p["value"];
+            entry["value"] = value?.DeepClone();
+            result[kv.Key] = entry;
+        }
+        return result;
+    }
+}
