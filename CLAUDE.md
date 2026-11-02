@@ -75,7 +75,10 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   - `scene.pkg` = string `PKGVxxxx`, contagem, tabela (nome, offset, tamanho) e os arquivos. Para classificar só se lê o
     `scene.json` e os `.js` (cache em `scene-cache.json` por tamanho e data do pacote).
   - Classificação: parallax (`general.cameraparallax` e `cameraparallaxamount`), som (`supportsaudioprocessing` ou
-    efeito de áudio no `scene.json`), mouse ou relógio (regex nos scripts). As 12 "cenas de GIF" (modelo de GIF do
+    efeito de áudio no `scene.json`), mouse e relógio separados desde a 2.4.0 (`SceneTraits.Mouse` e `Clock`, regex nos
+    scripts e no `scene.json`; 46 e 98 das dele) e som de fundo (`BackgroundSound`: objeto `sound` fora do modo
+    `random`, 103). `SuggestedLoop`: o menor loop de 10 a 60 s em que cabem inteiras todas as animações de linha do
+    tempo (`animation.options`: `length / fps`, `mirror` vale o dobro); 43 cenas têm. As 12 "cenas de GIF" (modelo de GIF do
     Wallpaper Engine) guardam tudo em `gifscene.pkg` com `gifscene.json`: o pacote se acha pelo nome do arquivo de
     cena do `project.json` (`SceneProject.PackageOf`). Até a 2.1.1 só se procurava `scene.pkg`, elas caíam em
     "Sem leitura" e a conversão quebrava (o texto antigo daqui dizia que convertiam; não convertiam).
@@ -98,6 +101,15 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
     comando de teste `{"cmd":"pan","x":..,"y":..}` move o "cursor" sem tocar no mouse: assim o pan foi fotografado.
   - A conversão roda em `FundoVivo.exe --convert-scenes` (fila em `%LOCALAPPDATA%\FundoVivo\scene-jobs`, um mutex
     por vez), nunca no motor. Pronta, grava `ConvertedScenes` e, se pedido, o monitor, e manda `reload`.
+  - **Som de fundo** (2.4.0): ao fim da gravação, o primeiro arquivo do primeiro objeto `sound` em loop sai do pacote,
+    vira AAC (`.m4a` ao lado do vídeo, com o `volume` do objeto) e vai em `ConvertedScene.Audio` e
+    `MonitorAssignment.Audio`. O `VideoWallpaper` toca num segundo `MediaPlayer`, só de áudio, em loop no tempo dele
+    (não no do vídeo), com o volume do item. Durante a gravação esse som toca no PC (o Wallpaper Engine não é
+    silenciado: mexeria na configuração dele).
+  - **Opções do autor** (2.4.0): o `SceneDialog` usa o mesmo `PropertyEditor` dos web; os valores vão em
+    `SceneJob.Properties` e o `SceneConverter.ApplyProperties` escreve no `project.json` da cópia. **Confirmado em
+    02/11/2026**: o Wallpaper Engine usa os valores da cópia (Mario Kart DS - Credits com Show Clock e Show Date
+    desligados saiu sem hora e sem data). As escolhas ficam em `Items[id].Properties` da cena, e o `--set` usa elas.
   - **Cenas de imagem animada única, direto da folha** (2.2.0; `Core/SpriteScene.cs`, `Core/WeTexture.cs`): um objeto
     `image` visível só, sem `effects`, sem partícula, texto, som, modelo ou luz, cor e alpha normais, cobrindo a
     `orthogonalprojection` inteira (ou o modelo antigo de GIF, que não guarda tamanho), e a textura do material em
@@ -171,7 +183,7 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
 - Diagnóstico (escreve no `describe.log`): `app\FundoVivo.exe --describe`
 - Publicar versão (decisão dele): subir `<Version>` e o `CHANGELOG.md`, commit, push, `ferramentas\publicar-versao.ps1`.
 - Só gerar o pacote, sem GitHub: `ferramentas\publicar-versao.ps1 -SoGerar` compila, empacota em
-  `build\release\fundo-vivo-<versão>.zip` (com `notas.md` e `SHA256.txt`), abre a cópia desempacotada e confere que
+  `build\release\fundo-vivo-<versão>.zip` (com `notas-<versão>.md` e `SHA256-<versão>.txt`; os pacotes das outras versões ficam), abre a cópia desempacotada e confere que
   o Windows deixa ela rodar. É o pacote que o instalador do pack dele usa.
 
 ## 3. Decisões que não se desfazem sem motivo

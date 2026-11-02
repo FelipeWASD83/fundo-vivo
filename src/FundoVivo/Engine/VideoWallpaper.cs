@@ -12,9 +12,10 @@ public sealed class VideoWallpaper : IWallpaper
     readonly WallpaperWindow _window;
     readonly string _file;
     readonly double _margin;
+    readonly string _audioFile;
     Windows.UI.Composition.Desktop.DesktopWindowTarget _target;
-    MediaPlayer _player;
-    MediaSource _source;
+    MediaPlayer _player, _audio;
+    MediaSource _source, _audioSource;
     MediaPlayerSurface _surface;
     SpriteVisual _background, _video;
     CompositionSurfaceBrush _brush;
@@ -30,12 +31,17 @@ public sealed class VideoWallpaper : IWallpaper
     /// For converted scenes with parallax: the video is that much bigger than the monitor on each side (a fraction of
     /// the monitor), and the mouse pans over it. 0 for an ordinary video.
     /// </param>
-    public VideoWallpaper(CompositionHost host, WallpaperWindow window, string file, double parallaxMargin = 0)
+    /// <param name="audioFile">
+    /// A converted scene's background sound: it loops on its own player, at its own length, so a three-minute song is
+    /// not cut every time the 20 s video starts over. The volume control of the video drives it.
+    /// </param>
+    public VideoWallpaper(CompositionHost host, WallpaperWindow window, string file, double parallaxMargin = 0, string audioFile = null)
     {
         _host = host;
         _window = window;
         _file = file;
         _margin = Math.Clamp(parallaxMargin, 0, 0.3);
+        _audioFile = audioFile != null && System.IO.File.Exists(audioFile) ? audioFile : null;
     }
 
     /// <summary>The pan only applies in Fill, where the extra picture is outside the screen and the mouse reveals it.</summary>
@@ -73,7 +79,16 @@ public sealed class VideoWallpaper : IWallpaper
         _brush.VerticalAlignmentRatio = 0.5f;
         _video.Brush = _brush;
         Resize(_window.Width, _window.Height);
-        if (!_paused) _player.Play();
+        if (_audioFile != null)
+        {
+            _audio = new MediaPlayer { AutoPlay = false, IsLoopingEnabled = true, IsMuted = true };
+            _audio.CommandManager.IsEnabled = false;
+            _audio.AudioCategory = MediaPlayerAudioCategory.Media;
+            _audio.MediaFailed += (_, e) => Log.Write($"scene sound failed ({e.Error}): {e.ErrorMessage} {_audioFile}");
+            _audioSource = MediaSource.CreateFromUri(new Uri(_audioFile));
+            _audio.Source = _audioSource;
+        }
+        if (!_paused) { _player.Play(); _audio?.Play(); }
         return Task.CompletedTask;
     }
 
@@ -82,10 +97,11 @@ public sealed class VideoWallpaper : IWallpaper
         if (_brush != null)
             _brush.Stretch = s.Fit switch { FitMode.Fit => CompositionStretch.Uniform, FitMode.Stretch => CompositionStretch.Fill, _ => CompositionStretch.UniformToFill };
         if (_fit != s.Fit) { _fit = s.Fit; Resize(_window.Width, _window.Height); }
-        if (_player != null)
+        foreach (var p in new[] { _player, _audio })
         {
-            _player.IsMuted = s.Volume <= 0;
-            _player.Volume = Math.Clamp(s.Volume / 100.0, 0, 1);
+            if (p == null) continue;
+            p.IsMuted = s.Volume <= 0;
+            p.Volume = Math.Clamp(s.Volume / 100.0, 0, 1);
         }
     }
 
@@ -144,11 +160,20 @@ public sealed class VideoWallpaper : IWallpaper
     {
         _paused = paused;
         if (_player == null) return;
-        if (paused) _player.Pause(); else _player.Play();
+        if (paused) { _player.Pause(); _audio?.Pause(); } else { _player.Play(); _audio?.Play(); }
     }
 
     public void Dispose()
     {
+        if (_audio != null)
+        {
+            _audio.Pause();
+            _audio.Source = null;
+            _audio.Dispose();
+            _audio = null;
+        }
+        _audioSource?.Dispose();
+        _audioSource = null;
         if (_player != null)
         {
             _player.Pause();

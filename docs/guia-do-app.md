@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 2.3.0)
+# Fundo Vivo: tudo que tem no app (versão 2.4.0)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele
@@ -138,9 +138,17 @@ num vídeo em loop para o monitor escolhido, e quem desenha durante a gravação
   da Biblioteca mostra o progresso e tem **Cancelar**; dá para fechar a janela, a conversão continua sozinha. Pronta,
   a cena vai para o monitor. Uma cena de 20 s leva uns 30 a 40 s.
 - **Tags automáticas** para o filtro: **Converte sem perder nada** (86 das suas), **Parallax vira pan** (40), **Perde
-  reação ao som** (95), **Perde mouse/relógio** (104) e **Sem leitura** (cena cujo arquivo não deu para ler; as 12 cenas de GIF
+  reação ao som** (95), **Perde o mouse** (46), **Relógio fica parado** (98), **Som vai junto** (103) e **Sem leitura** (cena cujo arquivo não deu para ler; as 12 cenas de GIF
   caíam aqui até a 2.1.2 e agora são lidas e convertem). Uma cena pode ter várias.
-- **Som:** o que estiver tocando no PC durante a gravação fica gravado na animação. Converta com o som parado.
+- **Som:** o que estiver tocando no PC durante a gravação fica gravado na animação (para as cenas que reagem ao
+  som). Converta com o som parado.
+- **Som de fundo vai junto:** a música ou o ambiente da cena sai do pacote e toca em loop junto do vídeo, no volume do
+  painel do monitor (começa mudo). Ele toca no próprio tempo, então a música não corta a cada volta do vídeo. Durante a
+  gravação ele toca no PC.
+- **Opções da cena:** a janela de conversão mostra as opções do autor (cor, personagem, mostrar relógio e data,
+  filtros) e o vídeo sai com elas. Bom para esconder um relógio que ficaria parado. Ficam guardadas para a próxima.
+- **Duração sugerida:** quando a cena diz quanto duram as animações dela, a duração já vem numa medida que fecha com
+  elas.
 - **Parallax:** o vídeo sai um pouco maior que a tela (até 15% de cada lado) e anda com o mouse. É uma aproximação: o
   vídeo inteiro anda junto, sem a profundidade de cada camada. Só em **Preencher**.
 - **Imagem animada só (tag Vira vídeo direto):** as cenas que são uma imagem animada e nada mais (as 12 de GIF, o

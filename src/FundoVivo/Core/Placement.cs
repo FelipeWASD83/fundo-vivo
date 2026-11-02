@@ -19,7 +19,7 @@ public static class Placement
         MonitorAssignment Video(ConvertedScene done, string package = null) => new()
         {
             ItemId = item.Id, Type = WallpaperType.Video, File = done.Output, Title = item.Title, MonitorName = m.Label,
-            SceneId = item.Id, ParallaxMargin = done.Margin, Package = package,
+            SceneId = item.Id, ParallaxMargin = done.Margin, Package = package, Audio = done.Audio,
         };
 
         if (item.Type == WallpaperType.Scene) return Made(false) is { } scene ? Video(scene) : null;
@@ -55,8 +55,11 @@ public static class Placement
             if (!item.Traits.HasFlag(SceneTraits.Direct))
             {
                 if (SceneConverter.FindWallpaperEngine() == null) { problem = "o Wallpaper Engine não foi encontrado (é ele que desenha a cena para a gravação)"; return null; }
-                job.Duration = c.SceneDuration;
+                job.Duration = item.SuggestedLoop > 0 ? item.SuggestedLoop : c.SceneDuration;
                 job.Crossfade = c.SceneCrossfade;
+                // the options last chosen for this scene in the window
+                if (c.Items.TryGetValue(item.Id, out var s) && s.Properties.Count > 0)
+                    job.Properties = s.Properties.ToDictionary(kv => kv.Key, kv => kv.Value?.DeepClone());
             }
             return job;
         }

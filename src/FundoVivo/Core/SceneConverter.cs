@@ -25,6 +25,8 @@ public sealed class SceneJob
     public string ItemId { get; set; }
     public string PackageFile { get; set; }
     public int Fps { get; set; } = 60;
+    /// <summary>Recorded scenes: the author's options chosen before converting, by property key.</summary>
+    public Dictionary<string, JsonNode> Properties { get; set; }
 }
 
 public sealed class SceneResult
@@ -34,6 +36,7 @@ public sealed class SceneResult
     public int Height { get; init; }
     public double Margin { get; init; }
     public int Fps { get; init; }
+    public string Audio { get; init; }
 }
 
 /// <summary>
@@ -114,6 +117,7 @@ public static class SceneConverter
         {
             progress.Report((0.02, "Preparando a cena"));
             scene.UnpackTo(work, disableParallax: true);
+            ApplyProperties(work, job.Properties);
             await EnsureRunningAsync(we, cancel);
 
             progress.Report((0.05, "Abrindo no Wallpaper Engine"));
@@ -170,8 +174,9 @@ public static class SceneConverter
                 lastError = ferr;
             }
             if (!done) throw new InvalidOperationException("Não deu para fechar o loop: " + lastError.Trim());
+            string audio = await ExtractSoundAsync(ffmpeg, scene, output, cancel);
             progress.Report((1, "Pronto"));
-            return new SceneResult { Output = output, Width = finalW, Height = finalH, Margin = margin, Fps = fps };
+            return new SceneResult { Output = output, Width = finalW, Height = finalH, Margin = margin, Fps = fps, Audio = audio };
         }
         finally
         {
@@ -179,6 +184,47 @@ public static class SceneConverter
             try { if (File.Exists(output + ".part.mp4")) File.Delete(output + ".part.mp4"); } catch { }
             try { if (Directory.Exists(work)) Directory.Delete(work, true); } catch (Exception e) { Log.Write("scene work folder: " + e.Message); }
         }
+    }
+
+    /// <summary>
+    /// The author's options chosen before converting go into the copy's project.json, the values Wallpaper Engine
+    /// starts a wallpaper with when it has nothing saved for that path (the copy's path is new for every job).
+    /// </summary>
+    static void ApplyProperties(string work, Dictionary<string, JsonNode> values)
+    {
+        if (values == null || values.Count == 0) return;
+        string pj = Path.Combine(work, "project.json");
+        var root = JsonNode.Parse(File.ReadAllText(pj), documentOptions: SceneProject.Lenient)?.AsObject();
+        if (root?["general"]?["properties"] is not JsonObject props) return;
+        int applied = 0;
+        foreach (var (key, value) in values)
+            if (props[key] is JsonObject p) { p["value"] = value?.DeepClone(); applied++; }
+        File.WriteAllText(pj, root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        Log.Write($"scene options: {applied} of {values.Count} written into the copy");
+    }
+
+    /// <summary>The scene's background sound, out of its package and into AAC next to the video; null when it has none.</summary>
+    static async Task<string> ExtractSoundAsync(string ffmpeg, SceneProject scene, string video, CancellationToken cancel)
+    {
+        if (scene.SoundEntry == null) return null;
+        string tmp = null;
+        try
+        {
+            byte[] bytes;
+            try { bytes = scene.ReadPackageEntry(scene.SoundEntry); }
+            catch (FileNotFoundException) { bytes = File.ReadAllBytes(Path.Combine(scene.Folder, scene.SoundEntry)); }
+            tmp = Path.Combine(Path.GetTempPath(), "fundovivo-sound-" + Guid.NewGuid().ToString("N")[..8] + Path.GetExtension(scene.SoundEntry));
+            await File.WriteAllBytesAsync(tmp, bytes, cancel);
+            string audio = Path.ChangeExtension(video, ".m4a");
+            string args = $"-y -hide_banner -nostats -loglevel error -i \"{tmp}\" -vn -af volume={F(scene.SoundVolume)} -c:a aac -b:a 192k -movflags +faststart \"{audio}\"";
+            var (ok, err) = await RunFfmpegAsync(ffmpeg, args, 0, _ => { }, cancel);
+            if (ok && File.Exists(audio)) return audio;
+            Log.Write($"scene sound not converted ({scene.Title}): {err.Trim()}");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception e) { Log.Write($"scene sound not taken ({scene.Title}): {e.Message}"); }
+        finally { try { if (tmp != null) File.Delete(tmp); } catch { } }
+        return null;
     }
 
     /// <summary>

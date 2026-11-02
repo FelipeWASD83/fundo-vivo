@@ -24,6 +24,8 @@ public sealed class MonitorAssignment
     public double ParallaxMargin { get; set; }
     /// <summary>Set when this is a .vivo wallpaper: the video rendered from it, or (Type Web) the file played live.</summary>
     public string Package { get; set; }
+    /// <summary>A converted scene's background sound, played in a loop next to the video.</summary>
+    public string Audio { get; set; }
 }
 
 /// <summary>Per-wallpaper choices; kept by item so switching away and back keeps them.</summary>
@@ -103,6 +105,8 @@ public sealed class ConvertedScene
     public DateTime Created { get; set; }
     /// <summary>For a rendered .vivo: the file version it was made from (Packages.Stamp).</summary>
     public string SourceStamp { get; set; }
+    /// <summary>The scene's background sound, taken out of its package (null when it has none).</summary>
+    public string Audio { get; set; }
 }
 
 public sealed class AppConfig

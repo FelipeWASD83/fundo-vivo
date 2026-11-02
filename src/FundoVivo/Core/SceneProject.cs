@@ -12,10 +12,15 @@ public enum SceneTraits
     None = 0,
     Parallax = 1,
     Sound = 2,
-    MouseOrClock = 4,
+    /// <summary>Scripts or particles that follow the mouse: frozen in the video.</summary>
+    Mouse = 4,
     Unreadable = 8,
     /// <summary>A single animated picture: becomes a video straight from its sprite sheet (SpriteScene), loop exact.</summary>
     Direct = 16,
+    /// <summary>Shows the time or the date: the video keeps the moment it was recorded.</summary>
+    Clock = 32,
+    /// <summary>Has background sound (music, ambience): it is taken out of the package and plays along with the video.</summary>
+    BackgroundSound = 64,
 }
 
 /// <summary>
@@ -33,19 +38,28 @@ public sealed class SceneProject
     public string ContentRating { get; init; }
     public SceneTraits Traits { get; init; }
     public double ParallaxAmount { get; init; }
+    /// <summary>A loop length (10 to 60 s) that every timeline animation of the scene fits a whole number of times; 0 when there is none.</summary>
+    public double SuggestedLoop { get; init; }
+    /// <summary>The background sound's entry in the package (or file in the folder) and its volume, when it has one.</summary>
+    public string SoundEntry { get; init; }
+    public double SoundVolume { get; init; } = 1;
 
     public string Id => Library.IdFor(Path.Combine(Folder, "project.json"));
 
-    public static readonly string[] TraitTags = { "Converte sem perder nada", "Parallax vira pan", "Perde reação ao som", "Perde mouse/relógio", "Sem leitura", "Vira vídeo direto" };
+    public static readonly string[] TraitTags = { "Converte sem perder nada", "Parallax vira pan", "Perde reação ao som", "Perde o mouse", "Sem leitura", "Vira vídeo direto", "Relógio fica parado", "Som vai junto" };
+
+    const SceneTraits Losses = SceneTraits.Parallax | SceneTraits.Sound | SceneTraits.Mouse | SceneTraits.Clock;
 
     /// <summary>The automatic tags for the library filter.</summary>
     public IEnumerable<string> ClassificationTags()
     {
         if (Traits.HasFlag(SceneTraits.Unreadable)) { yield return TraitTags[4]; yield break; }
-        if ((Traits & (SceneTraits.Parallax | SceneTraits.Sound | SceneTraits.MouseOrClock)) == 0) yield return TraitTags[0];
+        if ((Traits & Losses) == 0) yield return TraitTags[0];
         if (Traits.HasFlag(SceneTraits.Parallax)) yield return TraitTags[1];
         if (Traits.HasFlag(SceneTraits.Sound)) yield return TraitTags[2];
-        if (Traits.HasFlag(SceneTraits.MouseOrClock)) yield return TraitTags[3];
+        if (Traits.HasFlag(SceneTraits.Mouse)) yield return TraitTags[3];
+        if (Traits.HasFlag(SceneTraits.Clock)) yield return TraitTags[6];
+        if (Traits.HasFlag(SceneTraits.BackgroundSound)) yield return TraitTags[7];
         if (Traits.HasFlag(SceneTraits.Direct)) yield return TraitTags[5];
     }
 
@@ -167,9 +181,10 @@ public sealed class SceneProject
 
     // ---------------------------------------------------------------- reading and classifying
 
-    static readonly Regex MouseOrClockPattern = new(
-        @"cursorWorldPosition|cursorScreenPosition|cursorEnter|cursorLeave|cursorClick|cursorDown|cursorUp|cursorMove|input\.cursor|new Date\(|engine\.timeOfDay|getHours|getMinutes|toLocaleTimeString",
+    static readonly Regex MousePattern = new(
+        @"cursorWorldPosition|cursorScreenPosition|cursorEnter|cursorLeave|cursorClick|cursorDown|cursorUp|cursorMove|input\.cursor|controlpointstartinglocations",
         RegexOptions.Compiled);
+    static readonly Regex ClockPattern = new(@"new Date\(|engine\.timeOfDay|getHours|getMinutes|toLocaleTimeString|toLocaleDateString", RegexOptions.Compiled);
 
     /// <summary>Reads a scene project folder; null when the folder is not a scene.</summary>
     public static SceneProject Load(string folder)
@@ -188,7 +203,8 @@ public sealed class SceneProject
         string title = project["title"]?.ToString() is { } t && !string.IsNullOrWhiteSpace(t) ? t.Trim() : Path.GetFileName(folder);
 
         SceneTraits traits = SceneTraits.None;
-        double amount = 0;
+        double amount = 0, loop = 0, soundVolume = 1;
+        string soundEntry = null;
         try
         {
             var (sceneText, scripts) = ReadSceneText(folder, sceneFile);
@@ -202,23 +218,75 @@ public sealed class SceneProject
             if (supportsAudio || sceneText.Contains("audioprocessing", StringComparison.OrdinalIgnoreCase)
                 || Regex.IsMatch(sceneText, @"audio_?bars|audiovisual|audio_response|""audio""", RegexOptions.IgnoreCase))
                 traits |= SceneTraits.Sound;
-            if (MouseOrClockPattern.IsMatch(scripts) || MouseOrClockPattern.IsMatch(sceneText)) traits |= SceneTraits.MouseOrClock;
+            if (MousePattern.IsMatch(scripts) || MousePattern.IsMatch(sceneText)) traits |= SceneTraits.Mouse;
+            if (ClockPattern.IsMatch(scripts) || ClockPattern.IsMatch(sceneText)) traits |= SceneTraits.Clock;
+            (soundEntry, soundVolume) = BackgroundSound(scene);
+            if (soundEntry != null) traits |= SceneTraits.BackgroundSound;
+            loop = LoopFor(scene);
         }
         catch { traits = SceneTraits.Unreadable; }
 
-        var result = new SceneProject
+        var probe = new SceneProject { Folder = folder, SceneFile = sceneFile };
+        if (!traits.HasFlag(SceneTraits.Unreadable) && probe.SpriteTexture() != null) traits |= SceneTraits.Direct;
+        return new SceneProject
         {
             Folder = folder, Title = title, SceneFile = sceneFile, Preview = preview, Tags = tags,
             ContentRating = project["contentrating"]?.ToString(), Traits = traits, ParallaxAmount = amount,
+            SuggestedLoop = loop, SoundEntry = soundEntry, SoundVolume = soundVolume,
         };
-        if (!traits.HasFlag(SceneTraits.Unreadable) && result.SpriteTexture() != null)
-            result = new SceneProject
-            {
-                Folder = folder, Title = title, SceneFile = sceneFile, Preview = preview, Tags = tags,
-                ContentRating = result.ContentRating, Traits = traits | SceneTraits.Direct, ParallaxAmount = amount,
-            };
-        return result;
     }
+
+    /// <summary>The first sound object that plays in a loop (the random mode, with its gaps, is left out).</summary>
+    static (string entry, double volume) BackgroundSound(JsonObject scene)
+    {
+        foreach (var o in (scene["objects"] as JsonArray)?.OfType<JsonObject>() ?? Enumerable.Empty<JsonObject>())
+        {
+            if (o["sound"] is not JsonArray files || files.Count == 0) continue;
+            if (string.Equals(o["playbackmode"]?.ToString(), "random", StringComparison.OrdinalIgnoreCase)) continue;
+            string first = files[0]?.ToString();
+            if (!string.IsNullOrWhiteSpace(first)) return (first.Replace('\\', '/'), Math.Clamp(Number(o["volume"], 1), 0, 1));
+        }
+        return (null, 1);
+    }
+
+    /// <summary>
+    /// Timeline animations declare their length (frames at an fps; "mirror" goes there and back). When there are
+    /// some, the shortest loop of 10 to 60 s that all of them fit a whole number of times; else 0.
+    /// </summary>
+    static double LoopFor(JsonObject scene)
+    {
+        var periods = new HashSet<long>();   // in milliseconds
+        void Walk(JsonNode n)
+        {
+            if (n is JsonObject o)
+            {
+                if (o["animation"] is JsonObject a && a["options"] is JsonObject opt)
+                {
+                    double fps = Number(opt["fps"], 0), length = Number(opt["length"], 0);
+                    if (fps > 0 && length > 0)
+                    {
+                        double seconds = length / fps * (string.Equals(opt["mode"]?.ToString(), "mirror", StringComparison.OrdinalIgnoreCase) ? 2 : 1);
+                        periods.Add((long)Math.Round(seconds * 1000));
+                    }
+                }
+                foreach (var (_, child) in o) Walk(child);
+            }
+            else if (n is JsonArray arr) foreach (var child in arr) Walk(child);
+        }
+        Walk(scene);
+        periods.RemoveWhere(p => p <= 0);
+        if (periods.Count == 0) return 0;
+        long lcm = 1;
+        foreach (long p in periods)
+        {
+            lcm = lcm / Gcd(lcm, p) * p;
+            if (lcm > 60_000) return 0;
+        }
+        long loop = lcm * (long)Math.Ceiling(10_000.0 / lcm);
+        return loop <= 60_000 ? loop / 1000.0 : 0;
+    }
+
+    static long Gcd(long a, long b) { while (b != 0) (a, b) = (b, a % b); return a; }
 
     /// <summary>
     /// The package next to the project: named after the scene file (gifscene.json lives in gifscene.pkg, in the GIF

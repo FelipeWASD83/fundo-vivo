@@ -23,6 +23,8 @@ public sealed class LibraryItem
     /// <summary>Scenes only: what the video loses, and how strong the parallax is.</summary>
     public SceneTraits Traits { get; init; }
     public double ParallaxAmount { get; init; }
+    /// <summary>Scenes only: a loop length that fits every timeline animation of the scene, 0 when there is none.</summary>
+    public double SuggestedLoop { get; init; }
     /// <summary>.vivo only: shipped with the app, and whether it plays live (reacts to sound) instead of as a video.</summary>
     public bool IsExample { get; init; }
     public bool Realtime { get; init; }
@@ -119,7 +121,7 @@ public static class Library
             Id = scene.Id, Title = scene.Title, Type = WallpaperType.Scene, File = Path.Combine(dir, "project.json"), Folder = dir,
             Preview = scene.Preview, FromWallpaperEngine = true, ContentRating = scene.ContentRating,
             Date = Directory.GetLastWriteTime(dir), Tags = tags, Rating = FundoVivo.Core.Tags.Rating(scene.ContentRating),
-            Traits = scene.Traits, ParallaxAmount = scene.ParallaxAmount,
+            Traits = scene.Traits, ParallaxAmount = scene.ParallaxAmount, SuggestedLoop = scene.SuggestedLoop,
         });
     }
 

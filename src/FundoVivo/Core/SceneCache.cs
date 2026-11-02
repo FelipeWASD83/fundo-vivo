@@ -10,7 +10,7 @@ namespace FundoVivo.Core;
 public static class SceneCache
 {
     /// <summary>Raised when the classification learns something new, so the entries made before are read again.</summary>
-    const int CurrentVersion = 2;
+    const int CurrentVersion = 3;
 
     sealed class Entry
     {
@@ -24,6 +24,9 @@ public static class SceneCache
         public string ContentRating { get; set; }
         public SceneTraits Traits { get; set; }
         public double ParallaxAmount { get; set; }
+        public double SuggestedLoop { get; set; }
+        public string SoundEntry { get; set; }
+        public double SoundVolume { get; set; } = 1;
     }
 
     static readonly string FilePath = Path.Combine(AppPaths.Local, "scene-cache.json");
@@ -55,6 +58,7 @@ public static class SceneCache
             {
                 Folder = folder, Title = e.Title, SceneFile = e.SceneFile, Preview = e.Preview, Tags = e.Tags ?? new List<string>(),
                 ContentRating = e.ContentRating, Traits = e.Traits, ParallaxAmount = e.ParallaxAmount,
+                SuggestedLoop = e.SuggestedLoop, SoundEntry = e.SoundEntry, SoundVolume = e.SoundVolume,
             };
         var scene = SceneProject.Load(folder);
         if (scene == null) return null;
@@ -62,6 +66,7 @@ public static class SceneCache
         {
             Version = CurrentVersion, Size = size, Modified = modified, Title = scene.Title, SceneFile = scene.SceneFile, Preview = scene.Preview,
             Tags = scene.Tags.ToList(), ContentRating = scene.ContentRating, Traits = scene.Traits, ParallaxAmount = scene.ParallaxAmount,
+            SuggestedLoop = scene.SuggestedLoop, SoundEntry = scene.SoundEntry, SoundVolume = scene.SoundVolume,
         };
         _dirty = true;
         return scene;

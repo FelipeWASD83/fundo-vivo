@@ -564,14 +564,22 @@ public partial class SettingsWindow : Window
         if (item.Traits.HasFlag(SceneTraits.Direct)) { Enqueue(Placement.JobFor(_config, item, monitor, out string problem), problem); return; }
         string we = SceneConverter.FindWallpaperEngine();
         if (we == null) { MessageBox.Show(this, "O Wallpaper Engine não foi encontrado: é ele que desenha a cena para a gravação.", AppPaths.AppName); return; }
-        var dialog = new SceneDialog(this, item, monitor, _config.SceneDuration, _config.SceneCrossfade, SceneConverter.WallpaperEngineFps(we));
+        var dialog = new SceneDialog(this, item, monitor, _config.SceneDuration, _config.SceneCrossfade, SceneConverter.WallpaperEngineFps(we), _config.SettingsFor(item.Id));
         if (dialog.ShowDialog() != true) return;
         double duration = dialog.Duration, crossfade = dialog.Crossfade;
-        Mutate(c => { c.SceneDuration = duration; c.SceneCrossfade = crossfade; });
+        var chosen = dialog.Properties;
+        // the options are kept with the scene, so converting it again starts from them
+        Mutate(c =>
+        {
+            c.SceneDuration = duration;
+            c.SceneCrossfade = crossfade;
+            foreach (var (k, v) in chosen) c.SettingsFor(item.Id).Properties[k] = v?.DeepClone();
+        });
         SceneJobs.Enqueue(new SceneJob
         {
             SceneFolder = item.Folder, SceneTitle = item.Title, MonitorId = monitor.Id, MonitorName = monitor.Label,
             Width = monitor.Bounds.Width, Height = monitor.Bounds.Height, Duration = duration, Crossfade = crossfade,
+            Properties = chosen.ToDictionary(kv => kv.Key, kv => kv.Value?.DeepClone()),
         });
         _sceneJobSeen = null;
         RefreshSceneJob();
@@ -1342,6 +1350,29 @@ public partial class SettingsWindow : Window
                 RenderLibrary();
                 Log.Write($"selftest scenes: {LibraryList.Items.OfType<Border>().Count()} cards");
                 break;
+            case "scenedialog":
+            {
+                // argument: part of a scene's folder; the convert dialog off-screen, saved as a picture.
+                var scene = _scan.Items.First(i => i.Type == WallpaperType.Scene && i.Folder.Contains(argument, StringComparison.OrdinalIgnoreCase));
+                var monitor = SelectedMonitor ?? _monitors.First();
+                var dialog = new SceneDialog(this, scene, monitor, _config.SceneDuration, _config.SceneCrossfade, 30, _config.SettingsFor(scene.Id))
+                { WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, ShowActivated = false };
+                dialog.Show();
+                dialog.UpdateLayout();
+                var root = (FrameworkElement)dialog.Content;
+                double scale = VisualTreeHelper.GetDpi(dialog).DpiScaleX;
+                var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap((int)((root.ActualWidth + root.Margin.Left + root.Margin.Right) * scale), (int)((root.ActualHeight + root.Margin.Top + root.Margin.Bottom) * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+                var bg = new DrawingVisual();
+                using (var dc = bg.RenderOpen()) dc.DrawRectangle((Brush)FindResource("Paper"), null, new Rect(0, 0, root.ActualWidth + root.Margin.Left + root.Margin.Right, root.ActualHeight + root.Margin.Top + root.Margin.Bottom));
+                bmp.Render(bg);
+                bmp.Render(root);
+                var png = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+                using (var fs = File.Create(Path.Combine(AppPaths.Local, "scenedialog.png"))) png.Save(fs);
+                Log.Write($"selftest scenedialog: {scene.Title} duration={dialog.Duration} options={dialog.Properties.Count}");
+                dialog.Close();
+                break;
+            }
             case "theme":
                 // argument: light | dark, chosen with the same radio button a click would use.
                 (argument == "dark" ? ThemeDark : ThemeLight).IsChecked = true;

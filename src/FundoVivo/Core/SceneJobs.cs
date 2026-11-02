@@ -148,18 +148,18 @@ public static class SceneJobs
                 c.ConvertedScenes.RemoveAll(old.Contains);
                 // a re-render of a changed .vivo has a new file name; the old video goes
                 foreach (var o in old.Where(o => !string.Equals(o.Output, result.Output, StringComparison.OrdinalIgnoreCase)))
-                    try { File.Delete(o.Output); } catch { }
+                    try { File.Delete(o.Output); if (o.Audio != null && o.Audio != result.Audio) File.Delete(o.Audio); } catch { }
                 c.ConvertedScenes.Add(new ConvertedScene
                 {
                     SceneId = id, SceneFolder = fromFile ? job.PackageFile : job.SceneFolder, Title = title, MonitorWidth = job.Width, MonitorHeight = job.Height,
                     Output = result.Output, VideoWidth = result.Width, VideoHeight = result.Height, Margin = result.Margin, Fps = result.Fps,
-                    Duration = job.Duration, Created = DateTime.Now, SourceStamp = stamp,
+                    Duration = job.Duration, Created = DateTime.Now, SourceStamp = stamp, Audio = result.Audio,
                 });
                 if (job.Assign && job.MonitorId != null)
                     c.Monitors[job.MonitorId] = new MonitorAssignment
                     {
                         ItemId = id, Type = WallpaperType.Video, File = result.Output, Title = title, MonitorName = job.MonitorName,
-                        SceneId = id, ParallaxMargin = result.Margin, Package = package ? job.PackageFile : null,
+                        SceneId = id, ParallaxMargin = result.Margin, Package = package ? job.PackageFile : null, Audio = result.Audio,
                     };
             });
             if (job.Assign && !Engine.EngineHost.Send("{\"cmd\":\"reload\"}"))

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -16,8 +17,10 @@ public sealed class SceneDialog : Window
 
     public double Duration => _duration.Value;
     public double Crossfade => _crossfade.Value;
+    /// <summary>The author's options as chosen here (all of them, so the copy gets exactly what was on screen).</summary>
+    public Dictionary<string, JsonNode> Properties { get; } = new();
 
-    public SceneDialog(Window owner, LibraryItem scene, MonitorInfo monitor, double duration, double crossfade, int fps)
+    public SceneDialog(Window owner, LibraryItem scene, MonitorInfo monitor, double duration, double crossfade, int fps, ItemSettings settings)
     {
         Owner = owner;
         Title = "Converter cena";
@@ -28,7 +31,8 @@ public sealed class SceneDialog : Window
         ShowInTaskbar = false;
         Style = (Style)FindResource("WindowText");
         SourceInitialized += (_, _) => ThemeManager.SetTitleBar(this);
-        _duration.Value = Math.Clamp(duration, 10, 60);
+        // the scene's own timeline decides the default when it declares one
+        _duration.Value = Math.Clamp(scene.SuggestedLoop > 0 ? scene.SuggestedLoop : duration, 10, 60);
         _crossfade.Value = Math.Clamp(crossfade, 0.5, 3);
 
         var root = new StackPanel { Margin = new Thickness(22, 18, 22, 18) };
@@ -38,15 +42,21 @@ public sealed class SceneDialog : Window
         var traits = scene.Traits;
         var notes = new List<string>();
         if (traits.HasFlag(SceneTraits.Unreadable))
-            notes.Add("Não deu para ler o que esta cena usa (formato de cena de GIF). Ela converte, mas sem a classificação.");
-        else if ((traits & (SceneTraits.Parallax | SceneTraits.Sound | SceneTraits.MouseOrClock)) == 0)
-            notes.Add("Converte sem perder nada: a cena não usa mouse, relógio, som nem parallax.");
+            notes.Add("Não deu para ler o que esta cena usa. Ela converte, mas sem a classificação.");
+        else if ((traits & (SceneTraits.Parallax | SceneTraits.Sound | SceneTraits.Mouse | SceneTraits.Clock)) == 0)
+            notes.Add("Converte sem perder nada: a cena não usa mouse, relógio, reação ao som nem parallax.");
         if (traits.HasFlag(SceneTraits.Parallax))
             notes.Add("Parallax vira pan: o vídeo sai um pouco maior que a tela e anda com o mouse. É uma aproximação: o vídeo inteiro anda junto, sem a profundidade de cada camada.");
         if (traits.HasFlag(SceneTraits.Sound))
             notes.Add("Perde a reação ao som. E o que estiver tocando no PC durante a gravação fica gravado na animação: converta com o som parado.");
-        if (traits.HasFlag(SceneTraits.MouseOrClock))
-            notes.Add("Perde mouse ou relógio: o que reage ao mouse fica parado e a hora que aparecer fica a da gravação.");
+        if (traits.HasFlag(SceneTraits.Mouse))
+            notes.Add("Perde o mouse: o que segue o cursor fica parado.");
+        if (traits.HasFlag(SceneTraits.Clock))
+            notes.Add("O relógio fica parado na hora da gravação. Se a cena tiver uma opção para esconder o relógio, ela está aqui embaixo.");
+        if (traits.HasFlag(SceneTraits.BackgroundSound))
+            notes.Add("O som de fundo vai junto: ele sai do pacote e toca em loop com o vídeo, no volume do painel (começa mudo).");
+        if (scene.SuggestedLoop > 0)
+            notes.Add($"As animações da cena se repetem a cada pouco; um loop de {scene.SuggestedLoop:0.##} s fecha certinho com elas (por isso a duração já vem nele).");
         root.Children.Add(new TextBlock { Text = "O QUE MUDA", Style = (Style)FindResource("Label") });
         foreach (string n in notes) root.Children.Add(Muted("• " + n, new Thickness(0, 0, 0, 4)));
 
@@ -54,6 +64,20 @@ public sealed class SceneDialog : Window
         root.Children.Add(Row(_duration, v => $"{v:0} s"));
         root.Children.Add(new TextBlock { Text = "EMENDA (MISTURA DO FIM COM O COMEÇO)", Style = (Style)FindResource("Label") });
         root.Children.Add(Row(_crossfade, v => v.ToString("0.0", CultureInfo.CurrentCulture) + " s"));
+
+        // The author's options, the same editor as the web wallpapers; the choices go into the copy that is recorded.
+        var project = WeProject.Load(scene.Folder);
+        if (project != null)
+        {
+            var panel = new StackPanel();
+            var current = new ItemSettings { Properties = new Dictionary<string, JsonNode>(settings?.Properties ?? new()) };
+            foreach (var (k, v) in project.UserProperties(current)) Properties[k] = v?["value"]?.DeepClone();
+            if (PropertyEditor.Build(panel, project, current, (key, value) => Properties[key] = value?.DeepClone()) > 0)
+            {
+                root.Children.Add(new TextBlock { Text = "OPÇÕES DA CENA", Style = (Style)FindResource("Label") });
+                root.Children.Add(new ScrollViewer { Content = panel, MaxHeight = 320, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+            }
+        }
 
         root.Children.Add(Muted(
             "Durante a gravação, a janela do Wallpaper Engine aparece por um instante no canto da tela e sai para fora dela; " +

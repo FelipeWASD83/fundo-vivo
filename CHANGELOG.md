@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.0 (02/11/2026)
+
+### Novo
+- O som de fundo das cenas (música, ambiente; 103 das suas) vai junto: sai do pacote e toca em loop com o vídeo convertido, com o controle de volume do painel (começa mudo). Toca no próprio tempo, então uma música de 3 minutos não é cortada a cada volta do vídeo.
+- As opções do autor da cena aparecem antes de converter (cor, personagem, mostrar relógio, filtros...), e o vídeo sai com elas. Dá, por exemplo, para esconder um relógio que ficaria parado na hora da gravação. As escolhas ficam guardadas para a próxima conversão.
+- Quando a cena declara a duração das animações dela (43 das suas), a duração do loop já vem numa medida que fecha certinho com elas.
+
+### Mudou
+- As tags das cenas dizem melhor o que muda no vídeo: **Perde o mouse** e **Relógio fica parado** separados (antes era uma só), e **Som vai junto** para as que têm som de fundo.
+
 ## 2.3.0 (02/11/2026)
 
 ### Novo

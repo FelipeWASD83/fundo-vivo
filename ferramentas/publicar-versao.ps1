@@ -36,27 +36,30 @@ if (-not $SoGerar) {
 
 # Compila do zero (com o carimbo contra o Smart App Control) e empacota só a pasta do programa.
 & (Join-Path $PSScriptRoot 'compilar.ps1')
+# -SoGerar deixa os pacotes das outras versões onde estão (o instalador do pack pode apontar para um deles).
 $tmp = if ($SoGerar) { Join-Path $raiz 'build\release' } else { Join-Path $env:TEMP "fundo-vivo-release-$versao" }
-if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
+if (-not $SoGerar -and (Test-Path $tmp)) { Remove-Item $tmp -Recurse -Force }
 New-Item -ItemType Directory -Force $tmp | Out-Null
 $zip = Join-Path $tmp "fundo-vivo-$versao.zip"
 # ZipFile do .NET grava os caminhos com barra normal, como o padrão do zip pede (o Compress-Archive do PowerShell 5.1
 # grava com barra invertida).
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+if (Test-Path $zip) { Remove-Item $zip -Force }
 [System.IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $raiz 'build\publish'), $zip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
 
 $linhas = $changelog -split "`r?`n"
 $inicio = [array]::IndexOf($linhas, ($linhas | Where-Object { $_ -match "^## $([regex]::Escape($versao)) " } | Select-Object -First 1))
 $notas = @()
 for ($i = $inicio + 1; $i -lt $linhas.Length; $i++) { if ($linhas[$i] -match '^## ') { break }; $notas += $linhas[$i] }
-$arqNotas = Join-Path $tmp 'notas.md'
+$arqNotas = Join-Path $tmp $(if ($SoGerar) { "notas-$versao.md" } else { 'notas.md' })
 [IO.File]::WriteAllText($arqNotas, (($notas -join "`n").Trim()), [Text.UTF8Encoding]::new($false))
 
 if ($SoGerar) {
     $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-    [IO.File]::WriteAllText((Join-Path $tmp 'SHA256.txt'), "$hash  fundo-vivo-$versao.zip`n", [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $tmp "SHA256-$versao.txt"), "$hash  fundo-vivo-$versao.zip`n", [Text.UTF8Encoding]::new($false))
     # A prova: a cópia que sai do zip abre e o Windows deixa carregar cada DLL dela.
     $teste = Join-Path $tmp 'conferencia'
+    if (Test-Path $teste) { Remove-Item $teste -Recurse -Force }
     Expand-Archive $zip -DestinationPath $teste
     $p = Start-Process (Join-Path $teste 'FundoVivo.exe') -ArgumentList '--check-load' -PassThru -Wait -WindowStyle Hidden
     if ($p.ExitCode -ne 0) { throw "A cópia do pacote não passou no --check-load (código $($p.ExitCode))." }
