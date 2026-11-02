@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.1 (02/11/2026)
+
+### Corrigido
+- Botões, filtros, busca e etiquetas saíam com uma elipse esticada em volta em vez de pílula; agora o canto é sempre a metade da altura.
+- O campo de busca encolhia até o texto de dica e cortava o "nome".
+
 ## 2.1.0 (02/11/2026)
 
 ### Mudou

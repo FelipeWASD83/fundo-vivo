@@ -50,7 +50,7 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   (a pílula e o menu estilo Central de Controle, **não** a janela de configurações dela, que ele acha feia) e à do
   `relogio-mond`: escuro em preto puro com os cinzas de sistema da Apple (`#1C1C1E`, `#2C2C2E`), texto branco a
   100/58/35%, cores de estado de sistema (verde `#30D158`, laranja `#FF9F0A`, vermelho `#FF453A`); claro em `#F2F2F7`.
-  Blocos com raio 22 a 26 e sem borda, controles em pílula (o escolhido é branco com texto preto, como os blocos
+  Blocos com raio 22 a 26 e sem borda, controles em pílula (**raio = meia altura pelo conversor `Pill`; nunca `CornerRadius="999"`**: o WPF não limita o raio como o CSS e desenha uma elipse esticada em volta do controle, o que ele viu e odiou na 2.1.0) (o escolhido é branco com texto preto, como os blocos
   ativos da ilha), botões e campos preenchidos sem borda. O bloco dos monitores (`Stage*`) é escuro nos dois temas.
   Títulos e rótulos em **Quicksand** (a fonte do relógio, OFL, em `src/FundoVivo/Fonts` com a licença; recurso
   `Brand`), corpo em Segoe UI Variable. Mexeu num dos três? Os outros dois acompanham. As paletas ficam

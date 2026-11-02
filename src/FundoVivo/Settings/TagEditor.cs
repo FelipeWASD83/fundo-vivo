@@ -97,11 +97,13 @@ public sealed class TagEditor : Window
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             row.Children.Add(new TextBlock { Text = tag, VerticalAlignment = VerticalAlignment.Center });
             row.Children.Add(remove);
-            _chips.Children.Add(new Border
+            var chip = new Border
             {
-                Background = (Brush)FindResource("Well"), CornerRadius = new CornerRadius(999), Padding = new Thickness(11, 3, 4, 3),
+                Background = (Brush)FindResource("Well"), Padding = new Thickness(11, 3, 4, 3),
                 Margin = new Thickness(0, 0, 6, 6), Child = row,
-            });
+            };
+            PillRadius.Apply(chip);
+            _chips.Children.Add(chip);
         }
     }
 
