@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.0 (02/11/2026)
+
+### Novo
+- Playlist por monitor: botão direito num wallpaper, **Pôr na playlist deste monitor**, e ele passa a trocar sozinho a cada 5 min, 15 min, 30 min, 1 h ou 2 h, em ordem ou aleatório. Só troca enquanto o monitor está tocando, nunca no meio de um jogo. No painel do monitor dá para tirar itens, desligar e pedir o próximo na hora.
+- Programas que pausam tudo: em Ajustes, uma lista de programas (After Effects, Blender, ComfyUI...) que, enquanto estiverem abertos, pausam os wallpapers ou tiram eles da memória, mesmo sem tela cheia. **Dos abertos** escolhe da lista do que está rodando.
+- Comandos para atalho de teclado ou Stream Deck: `FundoVivo.exe --pause`, `--resume`, `--toggle-pause`, `--next [monitor]` e `--set <monitor> <arquivo ou nome>`. O monitor é `principal`, o número contando da esquerda ou parte do nome.
+
+### Corrigido
+- Campos de texto não esticam mais os botões do lado.
+
 ## 2.2.0 (02/11/2026)
 
 ### Novo

@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 2.2.0)
+# Fundo Vivo: tudo que tem no app (versão 2.3.0)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele
@@ -69,6 +69,16 @@ Clique num monitor para escolher onde o próximo wallpaper vai.
 
 As escolhas (encaixe, som, opções) ficam guardadas por wallpaper: se você trocar e depois voltar, elas continuam lá.
 
+### Playlist do monitor
+
+- **Botão direito num wallpaper > Pôr na playlist deste monitor.** O que já está no monitor entra junto, em primeiro.
+  Só entra o que já toca naquele monitor: cena e Vivo que ainda não viraram vídeo para ele pedem um clique antes.
+- Com dois ou mais, o monitor troca sozinho: **a cada 5 min, 15 min, 30 min, 1 h ou 2 h**, **em ordem** ou
+  **aleatório**. Só troca enquanto está tocando, então nunca carrega nada no meio de um jogo. A troca é seca, sem
+  transição.
+- No painel: **Tirar** cada item, **Trocar sozinho** para desligar, **Próximo agora**, e **Pôr o atual na playlist**.
+- Escolher um wallpaper à mão no monitor recomeça a contagem.
+
 ### Ajustes
 
 **Quando ninguém vê o wallpaper**
@@ -79,6 +89,9 @@ As escolhas (encaixe, som, opções) ficam guardadas por wallpaper: se você tro
 - **Tela cheia num monitor pausa os outros também** (ligado por padrão), pensando no jogo: a placa de vídeo fica toda
   para ele.
 - Com a tela bloqueada, tudo pausa.
+- **Programas que pausam tudo:** uma lista de programas que, enquanto estiverem abertos, pausam os wallpapers ou
+  tiram eles da memória, mesmo sem tela cheia (After Effects, Premiere, Blender, ComfyUI, que disputam a placa). Digite
+  o nome do programa ou use **Dos abertos**. Tirar da memória ganha de pausar quando dois estão abertos.
 
 **Wallpapers web**
 - **O mouse funciona nos wallpapers interativos:** movimento e clique na área de trabalho vazia chegam no wallpaper.
@@ -100,6 +113,17 @@ mudou e o botão **Instalar**. O campo de token só é necessário para reposit�
 
 **Programa:** **Abrir pasta de registros** e **Fechar o Fundo Vivo** (desliga os wallpapers e devolve o papel de
 parede de antes).
+
+## Comandos (atalho de teclado, Stream Deck)
+
+| Comando | O que faz |
+|---|---|
+| `FundoVivo.exe --pause` / `--resume` / `--toggle-pause` | pausa, continua ou alterna tudo |
+| `FundoVivo.exe --next` | próximo da playlist em todos os monitores que têm uma |
+| `FundoVivo.exe --next 2` | só no monitor 2 (contando da esquerda), ou `principal`, ou parte do nome |
+| `FundoVivo.exe --set principal "Neve nas montanhas"` | põe esse wallpaper (nome ou arquivo) no monitor, como um clique; se precisar virar vídeo antes, faz e põe |
+
+Não abre janela nem mostra texto; o que aconteceu fica em `%LOCALAPPDATA%\FundoVivo\logs\cli.log`.
 
 ## Cenas do Wallpaper Engine
 

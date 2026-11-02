@@ -49,6 +49,31 @@ public sealed class PauseSettings
     public CoveredAction WhenCovered { get; set; } = CoveredAction.Pause;
     public FullscreenAction WhenFullscreen { get; set; } = FullscreenAction.Pause;
     public bool FullscreenPausesAll { get; set; } = true;
+    /// <summary>Programs that pause (or unload) every wallpaper while they are open: After Effects, ComfyUI and the like.</summary>
+    public List<ProgramRule> Programs { get; set; } = new();
+}
+
+public enum ProgramAction { Pause, Unload }
+
+public sealed class ProgramRule
+{
+    /// <summary>The process name, with or without ".exe" (AfterFX.exe, python.exe).</summary>
+    public string Exe { get; set; }
+    public ProgramAction Action { get; set; } = ProgramAction.Pause;
+}
+
+/// <summary>Wallpapers a monitor goes through on its own: each entry is ready to play on that monitor as it is.</summary>
+public sealed class Playlist
+{
+    public List<MonitorAssignment> Entries { get; set; } = new();
+    public bool Enabled { get; set; } = true;
+    public int Minutes { get; set; } = 30;
+    public bool Shuffle { get; set; }
+    public int Index { get; set; } = -1;
+    /// <summary>When the monitor last changed by the playlist (or the entry was put there); the next change counts from it.</summary>
+    public DateTime Changed { get; set; } = DateTime.Now;
+
+    public static readonly int[] MinuteChoices = { 5, 15, 30, 60, 120 };
 }
 
 public sealed class ConvertedVideo
@@ -91,6 +116,8 @@ public sealed class AppConfig
     public double SceneDuration { get; set; } = 20;
     public double SceneCrossfade { get; set; } = 1.5;
     public PauseSettings Pause { get; set; } = new();
+    /// <summary>By monitor id.</summary>
+    public Dictionary<string, Playlist> Playlists { get; set; } = new();
     public bool WebMouse { get; set; } = true;
     public bool WebAudio { get; set; } = true;
     public bool PausedByUser { get; set; }

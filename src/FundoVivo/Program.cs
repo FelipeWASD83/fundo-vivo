@@ -18,6 +18,7 @@ public static class Program
             case "--engine": return RunEngine();
             case "--settings": return RunSettings();
             case "--quit": return EngineHost.Send("{\"cmd\":\"quit\"}") ? 0 : 1;
+            case "--pause" or "--resume" or "--toggle-pause" or "--next" or "--set": return Cli.Run(args);
             case "--convert-scenes":
                 // Scene conversions run here, in a process of their own: never inside the engine.
                 Log.Name = "scenes";

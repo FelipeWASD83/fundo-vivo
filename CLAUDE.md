@@ -137,6 +137,22 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   - `FundoVivo.exe --vivo-still <vivo> <png> <w> <h> [t] [margem]` desenha um quadro com o mesmo renderizador: é o
     jeito de testar as três proporções sem pôr nada na tela dele. Headless Edge tira a foto antes das imagens
     decodificarem (sai preto); use isso ou o MCP chrome-devtools.
+- **Onde um item vai parar** (`Core/Placement.cs`, 2.3.0): `Ready` diz o que o item toca naquele monitor agora (ou
+  `null` quando precisa virar vídeo antes) e `JobFor` dá o job que faz o vídeo. A janela, a playlist e o `--set` usam
+  os dois; só a janela abre o diálogo de duração das cenas gravadas. Regra nova de "como um item toca" entra aqui,
+  não no `SettingsWindow`.
+- **Playlist por monitor** (2.3.0, `AppConfig.Playlists` por id do monitor): cada entrada é uma `MonitorAssignment`
+  pronta (por isso só entra o que já toca naquele monitor). O motor (`EngineHost.RotatePlaylists`, no `Tick`) troca
+  quando passou `Minutes` desde `Changed`, **só com o monitor em `playing`**; `Advance` grava no `config.json` (o mesmo
+  `Mutate` de sempre) e pula arquivo que sumiu. Escolher à mão, pela janela ou pelo `--set`, zera o relógio. A troca é
+  seca, sem transição.
+- **Programas que pausam tudo** (2.3.0, `Pause.Programs`): nome do processo, pausar ou tirar da memória; tirar
+  ganha. A lista de processos é lida no máximo a cada 2 s, só os nomes (nenhum handle no processo de ninguém, como a
+  ilha faz pelo anti-cheat). Estados `paused-program` e `unloaded-program`, e o nome vai no `state.json` (`program`).
+- **Linha de comando** (2.3.0, `Core/Cli.cs`): `--pause`, `--resume`, `--toggle-pause` e `--next [monitor]` viram
+  comandos `pause` e `next` no `WM_COPYDATA`; `--set <monitor> <arquivo ou nome>` resolve como um clique (põe na
+  biblioteca o arquivo que não estiver lá). Sem console: código de saída 0, 2 (fazendo o vídeo antes) ou 1, e o
+  registro em `logs\cli.log`. O monitor é `principal`, número da esquerda para a direita ou parte do nome.
 - **Contrato com a ilha** (módulo `fundo` do projeto `ilha`, desde 02/11/2026): ela lê a biblioteca e escreve no
   `config.json` daqui (`monitors` → `itemId`, `type`, `file`, `title`, `monitorName`, e o comando `reload` na janela
   `FundoVivoEngine`). **Não renomear esses campos nem o comando sem atualizar `ilha\src\Ilha\Modulos\Fundo\FundoVivoBridge.cs`**:

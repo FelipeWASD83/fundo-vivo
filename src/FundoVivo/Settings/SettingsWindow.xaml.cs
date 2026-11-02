@@ -184,6 +184,8 @@ public partial class SettingsWindow : Window
             "unloaded-fullscreen" => ("Fora da memória: tela cheia", (Brush)FindResource("Paused")),
             "paused-user" => ("Pausado por você", (Brush)FindResource("Paused")),
             "paused-locked" => ("Pausado: tela bloqueada", (Brush)FindResource("Paused")),
+            "paused-program" => ($"Pausado: {_engineState?["program"]} aberto", (Brush)FindResource("Paused")),
+            "unloaded-program" => ($"Fora da memória: {_engineState?["program"]} aberto", (Brush)FindResource("Paused")),
             "missing" => ("O arquivo não existe mais", (Brush)FindResource("Problem")),
             "error" => ("Não deu para abrir (veja os registros)", (Brush)FindResource("Problem")),
             _ => ("Abrindo", (Brush)FindResource("Ink3")),
@@ -452,6 +454,9 @@ public partial class SettingsWindow : Window
         card.MouseLeftButtonUp += (_, _) => Assign(item);
 
         var menu = new ContextMenu();
+        var toPlaylist = new MenuItem { Header = "Pôr na playlist deste monitor" };
+        toPlaylist.Click += (_, _) => AddToPlaylist(item);
+        menu.Items.Add(toPlaylist);
         var open = new MenuItem { Header = "Abrir a pasta" };
         open.Click += (_, _) => Process.Start("explorer.exe", $"/select,\"{item.File}\"");
         menu.Items.Add(open);
@@ -515,17 +520,14 @@ public partial class SettingsWindow : Window
     {
         var monitor = SelectedMonitor;
         if (monitor == null) return;
-        if (item.Type == WallpaperType.Scene)
+        // Ready to play here now (or made before for this monitor's size): straight to the monitor.
+        if (Placement.Ready(_config, item, monitor) is { } ready)
         {
-            // A scene plays as the video recorded for this monitor's size; without one, it is converted first.
-            var done = _config.ConvertedScenes.FirstOrDefault(c => c.SceneId == item.Id && c.MonitorWidth == monitor.Bounds.Width
-                && c.MonitorHeight == monitor.Bounds.Height && File.Exists(c.Output));
-            if (done == null) { ConvertScene(item); return; }
             FlushSettings();
-            Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
+            Mutate(c =>
             {
-                ItemId = item.Id, Type = WallpaperType.Video, File = done.Output, Title = item.Title, MonitorName = monitor.Label,
-                SceneId = item.Id, ParallaxMargin = done.Margin,
+                c.Monitors[monitor.Id] = ready;
+                if (c.Playlists.TryGetValue(monitor.Id, out var pl)) pl.Changed = DateTime.Now;   // a choice by hand restarts the clock
             });
             Notify("reload");
             RenderLibrary();
@@ -533,83 +535,24 @@ public partial class SettingsWindow : Window
             UpdateSidePanel();
             return;
         }
-        if (item.Type == WallpaperType.Image && !item.FromWallpaperEngine && GifConverter.IsAnimated(item.File))
-        {
-            // An animated GIF plays as a video made for this monitor's size (the image wallpaper shows one frame).
-            string stamp = Packages.Stamp(item.File);
-            var made = _config.ConvertedScenes.FirstOrDefault(c => c.SceneId == item.Id && c.MonitorWidth == monitor.Bounds.Width
-                && c.MonitorHeight == monitor.Bounds.Height && c.SourceStamp == stamp && File.Exists(c.Output));
-            if (made == null)
-            {
-                if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, "Para o GIF animar, o ffmpeg precisa estar no PATH.", AppPaths.AppName); return; }
-                SceneJobs.Enqueue(new SceneJob
-                {
-                    Kind = "gif", ItemId = item.Id, PackageFile = item.File, SceneTitle = item.Title, MonitorId = monitor.Id, MonitorName = monitor.Label,
-                    Width = monitor.Bounds.Width, Height = monitor.Bounds.Height, Duration = 0, Crossfade = 0,
-                });
-                _sceneJobSeen = null;
-                RefreshSceneJob();
-                return;
-            }
-            FlushSettings();
-            Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
-            {
-                ItemId = item.Id, Type = WallpaperType.Video, File = made.Output, Title = item.Title, MonitorName = monitor.Label, SceneId = item.Id,
-            });
-            Notify("reload");
-            RenderLibrary();
-            DrawMonitors();
-            UpdateSidePanel();
-            return;
-        }
-        if (item.Type == WallpaperType.Package && !item.Realtime)
-        {
-            // Nothing in it depends on the moment: it plays as the video rendered for this monitor, made first if needed.
-            string stamp = Packages.Stamp(item.File);
-            var done = _config.ConvertedScenes.FirstOrDefault(c => c.SceneId == item.Id && c.MonitorWidth == monitor.Bounds.Width
-                && c.MonitorHeight == monitor.Bounds.Height && c.SourceStamp == stamp && File.Exists(c.Output));
-            if (done == null) { RenderPackage(item); return; }
-            FlushSettings();
-            Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
-            {
-                ItemId = item.Id, Type = WallpaperType.Video, File = done.Output, Title = item.Title, MonitorName = monitor.Label,
-                SceneId = item.Id, ParallaxMargin = done.Margin, Package = item.File,
-            });
-            Notify("reload");
-            RenderLibrary();
-            DrawMonitors();
-            UpdateSidePanel();
-            return;
-        }
-        FlushSettings();
-        // A .vivo that reacts to sound plays live: the engine opens its runtime page like a web wallpaper.
-        bool live = item.Type == WallpaperType.Package;
-        Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
-        {
-            ItemId = item.Id, Type = live ? WallpaperType.Web : item.Type, File = item.File, Title = item.Title, MonitorName = monitor.Label,
-            Package = live ? item.File : null,
-        });
-        Notify("reload");
-        RenderLibrary();
-        DrawMonitors();
-        UpdateSidePanel();
+        // A recorded scene asks for its loop first; everything else is made with nothing to choose.
+        if (item.Type == WallpaperType.Scene && !item.Traits.HasFlag(SceneTraits.Direct)) { ConvertScene(item); return; }
+        Enqueue(Placement.JobFor(_config, item, monitor, out string problem), problem);
+    }
+
+    void Enqueue(SceneJob job, string problem)
+    {
+        if (job == null) { MessageBox.Show(this, "Não deu para preparar esse wallpaper: " + problem + ".", AppPaths.AppName); return; }
+        SceneJobs.Enqueue(job);
+        _sceneJobSeen = null;
+        RefreshSceneJob();
     }
 
     void RenderPackage(LibraryItem item)
     {
         var monitor = SelectedMonitor;
         if (monitor == null) return;
-        if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, "Para transformar o wallpaper em vídeo, o ffmpeg precisa estar no PATH.", AppPaths.AppName); return; }
-        var info = Packages.Inspect(item.File);
-        if (info == null) { MessageBox.Show(this, "Não deu para ler esse arquivo .vivo (veja o registro).", AppPaths.AppName); return; }
-        SceneJobs.Enqueue(new SceneJob
-        {
-            Kind = "package", ItemId = item.Id, PackageFile = item.File, SceneTitle = item.Title, MonitorId = monitor.Id, MonitorName = monitor.Label,
-            Width = monitor.Bounds.Width, Height = monitor.Bounds.Height, Duration = info.Loop, Crossfade = 0,
-            Fps = Math.Min(60, _config.EffectiveFps(monitor.RefreshRate)),
-        });
-        _sceneJobSeen = null;
-        RefreshSceneJob();
+        Enqueue(Placement.JobFor(_config, item, monitor, out string problem), problem);
     }
 
     void ConvertScene(LibraryItem item)
@@ -617,18 +560,8 @@ public partial class SettingsWindow : Window
         var monitor = SelectedMonitor;
         if (monitor == null) return;
         if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, "Para converter cenas, o ffmpeg precisa estar no PATH.", AppPaths.AppName); return; }
-        if (item.Traits.HasFlag(SceneTraits.Direct))
-        {
-            // Cut straight from its sprite sheet: the loop is the scene's own, so there is nothing to choose.
-            SceneJobs.Enqueue(new SceneJob
-            {
-                SceneFolder = item.Folder, SceneTitle = item.Title, MonitorId = monitor.Id, MonitorName = monitor.Label,
-                Width = monitor.Bounds.Width, Height = monitor.Bounds.Height, Duration = 0, Crossfade = 0,
-            });
-            _sceneJobSeen = null;
-            RefreshSceneJob();
-            return;
-        }
+        // Cut straight from its sprite sheet: the loop is the scene's own, so there is nothing to choose.
+        if (item.Traits.HasFlag(SceneTraits.Direct)) { Enqueue(Placement.JobFor(_config, item, monitor, out string problem), problem); return; }
         string we = SceneConverter.FindWallpaperEngine();
         if (we == null) { MessageBox.Show(this, "O Wallpaper Engine não foi encontrado: é ele que desenha a cena para a gravação.", AppPaths.AppName); return; }
         var dialog = new SceneDialog(this, item, monitor, _config.SceneDuration, _config.SceneCrossfade, SceneConverter.WallpaperEngineFps(we));
@@ -796,6 +729,7 @@ public partial class SettingsWindow : Window
             }
             _ = UpdateOptimizeAsync(m, a);
             _ = UpdateFpsLineAsync(m, a);
+            RenderPlaylist();
         }
         finally { _loading = false; }
     }
@@ -1056,6 +990,7 @@ public partial class SettingsWindow : Window
             ThemeSystem.IsChecked = _config.Theme == AppTheme.System;
             ThemeLight.IsChecked = _config.Theme == AppTheme.Light;
             ThemeDark.IsChecked = _config.Theme == AppTheme.Dark;
+            RenderProgramRules();
             FpsChoices.Children.Clear();
             foreach (int fps in AppConfig.FpsChoices)
             {
@@ -1074,6 +1009,193 @@ public partial class SettingsWindow : Window
                 : "Já tem um token guardado. Para trocar, cole outro e guarde; para tirar, guarde vazio.";
         }
         finally { _loading = false; }
+    }
+
+    // ------------------------------------------------------------------ playlist of the selected monitor
+
+    void RenderPlaylist()
+    {
+        var m = SelectedMonitor;
+        PlaylistEntries.Children.Clear();
+        if (m == null) return;
+        var pl = _config.Playlists.GetValueOrDefault(m.Id);
+        int count = pl?.Entries.Count ?? 0;
+        string current = SelectedAssignment?.ItemId;
+        PlaylistHint.Text = count switch
+        {
+            0 => "Botão direito num wallpaper da biblioteca: Pôr na playlist deste monitor. Com dois ou mais, ele troca sozinho.",
+            1 => "Com mais um, ele troca sozinho.",
+            _ => pl.Enabled ? $"Troca a cada {Interval(pl.Minutes)}, {(pl.Shuffle ? "aleatório" : "em ordem")}, só enquanto o monitor está tocando (nunca no meio de um jogo)." : "Parada: ligue Trocar sozinho.",
+        };
+        for (int i = 0; i < count; i++)
+        {
+            var e = pl.Entries[i];
+            int index = i;
+            var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var name = new TextBlock { Text = e.Title, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, FontWeight = e.ItemId == current ? FontWeights.SemiBold : FontWeights.Normal };
+            if (e.ItemId != current) name.SetResourceReference(TextBlock.ForegroundProperty, "Ink2");
+            row.Children.Add(name);
+            var remove = new Button { Content = "Tirar", Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(8, 0, 0, 0) };
+            remove.Click += (_, _) => { Mutate(c => { if (c.Playlists.TryGetValue(m.Id, out var p) && index < p.Entries.Count) p.Entries.RemoveAt(index); }); Notify("settings"); RenderPlaylist(); };
+            Grid.SetColumn(remove, 1);
+            row.Children.Add(remove);
+            PlaylistEntries.Children.Add(row);
+        }
+        bool loading = _loading;
+        _loading = true;
+        PlaylistOptions.Visibility = count >= 2 ? Visibility.Visible : Visibility.Collapsed;
+        PlaylistNext.Visibility = count >= 2 ? Visibility.Visible : Visibility.Collapsed;
+        PlaylistAddCurrent.Visibility = SelectedAssignment != null && (pl?.Entries.All(x => x.ItemId != current) ?? true) ? Visibility.Visible : Visibility.Collapsed;
+        PlaylistOn.IsChecked = pl?.Enabled ?? true;
+        PlaylistShuffle.IsChecked = pl?.Shuffle == true;
+        PlaylistInOrder.IsChecked = pl?.Shuffle != true;
+        PlaylistMinutes.Children.Clear();
+        foreach (int minutes in Playlist.MinuteChoices)
+        {
+            var choice = new RadioButton { Content = Interval(minutes), GroupName = "plmin", Style = (Style)FindResource("Segment"), IsChecked = (pl?.Minutes ?? 30) == minutes, Tag = minutes };
+            if (minutes == Playlist.MinuteChoices[^1]) choice.Margin = new Thickness(0);
+            choice.Checked += Playlist_Changed;
+            PlaylistMinutes.Children.Add(choice);
+        }
+        _loading = loading;
+    }
+
+    static string Interval(int minutes) => minutes < 60 ? $"{minutes} min" : minutes % 60 == 0 ? $"{minutes / 60} h" : $"{minutes} min";
+
+    void Playlist_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading || SelectedMonitor == null) return;
+        string id = SelectedMonitor.Id;
+        int minutes = PlaylistMinutes.Children.OfType<RadioButton>().FirstOrDefault(r => r.IsChecked == true)?.Tag is int t ? t : 30;
+        Mutate(c =>
+        {
+            if (!c.Playlists.TryGetValue(id, out var pl)) return;
+            pl.Enabled = PlaylistOn.IsChecked == true;
+            pl.Shuffle = PlaylistShuffle.IsChecked == true;
+            pl.Minutes = minutes;
+        });
+        Notify("settings");
+        RenderPlaylist();
+    }
+
+    void AddToPlaylist(LibraryItem item)
+    {
+        var m = SelectedMonitor;
+        if (m == null) return;
+        if (Placement.Ready(_config, item, m) is not { } ready)
+        {
+            MessageBox.Show(this, $"«{item.Title}» precisa virar vídeo para este monitor antes de entrar na playlist: clique nele uma vez e, quando estiver pronto, ponha de novo.", AppPaths.AppName);
+            return;
+        }
+        var current = SelectedAssignment;
+        Mutate(c =>
+        {
+            if (!c.Playlists.TryGetValue(m.Id, out var pl)) c.Playlists[m.Id] = pl = new Playlist { Changed = DateTime.Now };
+            // what is on the monitor now comes in first, so the list starts from it
+            if (pl.Entries.Count == 0 && current != null && current.ItemId != item.Id) pl.Entries.Add(current);
+            if (pl.Entries.All(e => e.ItemId != item.Id)) pl.Entries.Add(ready);
+        });
+        Notify("settings");
+        UpdateSidePanel();
+    }
+
+    void PlaylistAddCurrent_Click(object sender, RoutedEventArgs e)
+    {
+        var m = SelectedMonitor;
+        var a = SelectedAssignment;
+        if (m == null || a == null) return;
+        Mutate(c =>
+        {
+            if (!c.Playlists.TryGetValue(m.Id, out var pl)) c.Playlists[m.Id] = pl = new Playlist { Changed = DateTime.Now };
+            if (pl.Entries.All(x => x.ItemId != a.ItemId)) pl.Entries.Add(a);
+        });
+        Notify("settings");
+        RenderPlaylist();
+    }
+
+    void PlaylistNext_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedMonitor == null) return;
+        if (!EngineHost.Send(new JsonObject { ["cmd"] = "next", ["monitor"] = SelectedMonitor.Id }.ToJsonString())) return;
+        Dispatcher.BeginInvoke(async () => { await Task.Delay(600); _config = ConfigStore.Load(); RefreshState(); DrawMonitors(); UpdateSidePanel(); RenderLibrary(); });
+    }
+
+    // ------------------------------------------------------------------ programs that pause everything
+
+    void RenderProgramRules()
+    {
+        ProgramRulesList.Children.Clear();
+        var rules = _config.Pause.Programs;
+        for (int i = 0; i < rules.Count; i++)
+        {
+            var r = rules[i];
+            int index = i;
+            var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.Children.Add(new TextBlock { Text = r.Exe, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
+            var bar = new Border { Style = (Style)FindResource("SegmentBar"), Margin = new Thickness(8, 0, 0, 0) };
+            var seg = new StackPanel { Orientation = Orientation.Horizontal };
+            foreach (var (action, label) in new[] { (ProgramAction.Pause, "Pausar"), (ProgramAction.Unload, "Tirar da memória") })
+            {
+                var choice = new RadioButton { Content = label, GroupName = "rule" + i, Style = (Style)FindResource("Segment"), IsChecked = r.Action == action };
+                if (action == ProgramAction.Unload) choice.Margin = new Thickness(0);
+                choice.Checked += (_, _) =>
+                {
+                    if (_loading) return;
+                    Mutate(c => { if (index < c.Pause.Programs.Count) c.Pause.Programs[index].Action = action; });
+                    Notify("settings");
+                };
+                seg.Children.Add(choice);
+            }
+            bar.Child = seg;
+            Grid.SetColumn(bar, 1);
+            row.Children.Add(bar);
+            var remove = new Button { Content = "Tirar", Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(6, 0, 0, 0) };
+            remove.Click += (_, _) => { Mutate(c => { if (index < c.Pause.Programs.Count) c.Pause.Programs.RemoveAt(index); }); Notify("settings"); RenderProgramRules(); };
+            Grid.SetColumn(remove, 2);
+            row.Children.Add(remove);
+            ProgramRulesList.Children.Add(row);
+        }
+    }
+
+    void AddProgramRule(string exe)
+    {
+        exe = exe?.Trim();
+        if (string.IsNullOrEmpty(exe)) return;
+        if (!exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) exe += ".exe";
+        Mutate(c =>
+        {
+            if (c.Pause.Programs.All(r => !r.Exe.Equals(exe, StringComparison.OrdinalIgnoreCase)))
+                c.Pause.Programs.Add(new ProgramRule { Exe = exe, Action = ProgramAction.Pause });
+        });
+        Notify("settings");
+        ProgramRuleBox.Text = "";
+        RenderProgramRules();
+    }
+
+    void AddProgramRule_Click(object sender, RoutedEventArgs e) => AddProgramRule(ProgramRuleBox.Text);
+    void ProgramRuleBox_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Enter) AddProgramRule(ProgramRuleBox.Text); }
+    void ProgramRuleBox_TextChanged(object sender, TextChangedEventArgs e) => ProgramRuleHint.Visibility = ProgramRuleBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The programs with a window open right now, by name, to pick from.</summary>
+    void PickProgram_Click(object sender, RoutedEventArgs e)
+    {
+        var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in Process.GetProcesses())
+            using (p)
+                try { if (p.MainWindowHandle != IntPtr.Zero && p.Id != Environment.ProcessId) names.Add(p.ProcessName + ".exe"); } catch { }
+        var menu = new ContextMenu { PlacementTarget = PickProgramButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        foreach (string n in names)
+        {
+            var item = new MenuItem { Header = n };
+            item.Click += (_, _) => AddProgramRule(n);
+            menu.Items.Add(item);
+        }
+        menu.IsOpen = true;
     }
 
     void Option_Changed(object sender, RoutedEventArgs e)

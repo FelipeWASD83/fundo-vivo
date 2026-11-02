@@ -40,6 +40,9 @@ public sealed class EngineHost : NativeWindow
     Windows.System.DispatcherQueueTimer _tick, _soon, _rebuildTimer, _releaseTimer;
     bool _locked, _rawInputOn, _exiting;
     string _lastState;
+    DateTime _programsChecked;
+    string _programOpen;           // the open program a rule names, or null
+    ProgramAction _programAction;
     POINT _lastMouse;
     DateTime _lastClickLog;
 
@@ -277,6 +280,7 @@ public sealed class EngineHost : NativeWindow
         var cover = ignoreScreen ? new Dictionary<string, MonitorCover>() : PauseMonitor.Evaluate(_monitors, _pid);
         bool anyFullscreen = !ignoreScreen && (PauseMonitor.ExclusiveFullscreen() || cover.Values.Any(c => c == MonitorCover.Fullscreen));
         var p = _config.Pause;
+        CheckPrograms();
 
         foreach (var s in _slots.Values)
         {
@@ -291,6 +295,8 @@ public sealed class EngineHost : NativeWindow
             string state; bool pause = false, unload = false;
             if (_config.PausedByUser) { state = "paused-user"; pause = true; }
             else if (_locked) { state = "paused-locked"; pause = true; }
+            else if (_programOpen != null && _programAction == ProgramAction.Unload) { state = "unloaded-program"; unload = true; }
+            else if (_programOpen != null) { state = "paused-program"; pause = true; }
             else if (c == MonitorCover.Fullscreen && p.WhenFullscreen == FullscreenAction.Unload) { state = "unloaded-fullscreen"; unload = true; }
             else if (c == MonitorCover.Fullscreen && p.WhenFullscreen == FullscreenAction.Pause) { state = "paused-fullscreen"; pause = true; }
             else if (c == MonitorCover.Covered && p.WhenCovered == CoveredAction.Pause) { state = "paused-covered"; pause = true; }
@@ -313,6 +319,80 @@ public sealed class EngineHost : NativeWindow
         }
         UpdateAudio();
         WriteState();
+        RotatePlaylists();
+    }
+
+    /// <summary>
+    /// The pause rules by program: any of them open pauses (or unloads) every wallpaper, unload winning over pause.
+    /// The process list is read at most every 2 s, by name only (no handle on anyone's process).
+    /// </summary>
+    void CheckPrograms()
+    {
+        var rules = _config.Pause.Programs;
+        if (rules == null || rules.Count == 0) { _programOpen = null; return; }
+        if ((DateTime.Now - _programsChecked).TotalSeconds < 2) return;
+        _programsChecked = DateTime.Now;
+        var running = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var proc in Process.GetProcesses()) using (proc) running.Add(proc.ProcessName);
+        string open = null;
+        var action = ProgramAction.Pause;
+        foreach (var r in rules)
+        {
+            string name = (r.Exe ?? "").Trim();
+            if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) name = name[..^4];
+            if (name.Length == 0 || !running.Contains(name)) continue;
+            if (open == null || r.Action == ProgramAction.Unload) { open = name; action = r.Action; }
+        }
+        if (open != _programOpen) Log.Write(open == null ? "pause rule: no listed program open" : $"pause rule: {open} is open ({action})");
+        _programOpen = open;
+        _programAction = action;
+    }
+
+    // ---------------------------------------------------------------- playlists
+
+    /// <summary>A monitor whose time is up moves to its next entry; only while it is playing (never mid-game).</summary>
+    void RotatePlaylists()
+    {
+        var due = new List<string>();
+        foreach (var (id, pl) in _config.Playlists)
+        {
+            if (pl == null || !pl.Enabled || pl.Entries.Count < 2) continue;
+            if (!_slots.TryGetValue(id, out var s) || s.State != "playing") continue;
+            if ((DateTime.Now - pl.Changed).TotalMinutes >= Math.Max(1, pl.Minutes)) due.Add(id);
+        }
+        if (due.Count == 0) return;
+        foreach (string id in due) Advance(id);
+        ScheduleRebuild(50);
+    }
+
+    /// <summary>Puts the monitor's next playlist entry (in order or at random) on it, skipping files that are gone.</summary>
+    void Advance(string monitorId)
+    {
+        ConfigStore.Mutate(c =>
+        {
+            if (!c.Playlists.TryGetValue(monitorId, out var pl) || pl.Entries.Count == 0) return;
+            int count = pl.Entries.Count;
+            string current = c.Monitors.GetValueOrDefault(monitorId)?.ItemId;
+            int at = pl.Entries.FindIndex(e => e.ItemId == current);
+            if (at >= 0) pl.Index = at;
+            for (int tries = 0; tries < count; tries++)
+            {
+                int next = pl.Shuffle && count > 1 ? RandomOther(pl.Index, count) : (pl.Index + 1 + count) % count;
+                pl.Index = next;
+                var e = pl.Entries[next];
+                if (!System.IO.File.Exists(e.File)) continue;
+                c.Monitors[monitorId] = System.Text.Json.JsonSerializer.Deserialize<MonitorAssignment>(System.Text.Json.JsonSerializer.Serialize(e, ConfigStore.Json), ConfigStore.Json);
+                Log.Write($"playlist: {e.Title} on {e.MonitorName}");
+                break;
+            }
+            pl.Changed = DateTime.Now;
+        });
+    }
+
+    static int RandomOther(int current, int count)
+    {
+        int n = Random.Shared.Next(count - 1);
+        return current >= 0 && n >= current ? n + 1 : n;
     }
 
     void UpdateAudio()
@@ -332,6 +412,7 @@ public sealed class EngineHost : NativeWindow
             ["pid"] = Environment.ProcessId,
             ["version"] = AppPaths.Version,
             ["pausedByUser"] = _config.PausedByUser,
+            ["program"] = _programOpen,
             ["audio"] = _audio.Running,
             ["monitors"] = monitors,
         };
@@ -520,6 +601,19 @@ public sealed class EngineHost : NativeWindow
                     break;
                 case "quit":
                     Exit();
+                    break;
+                case "pause":
+                    // {"cmd":"pause"} toggles; "value": true or false sets it (FundoVivo.exe --pause / --resume / --toggle-pause)
+                    bool? want = node["value"] is JsonValue v && v.TryGetValue(out bool b) ? b : null;
+                    _config = ConfigStore.Mutate(c => c.PausedByUser = want ?? !c.PausedByUser);
+                    Tick();
+                    break;
+                case "next":
+                    // one monitor ("monitor": its id) or every monitor that has a playlist
+                    string only = node["monitor"]?.ToString();
+                    foreach (string id in _config.Playlists.Where(kv => kv.Value?.Entries.Count > 0 && (only == null || kv.Key == only)).Select(kv => kv.Key).ToList())
+                        Advance(id);
+                    Rebuild(false);
                     break;
                 case "pan" when AppPaths.TestMode:
                     // Self-test only: a cursor position without touching the real mouse.

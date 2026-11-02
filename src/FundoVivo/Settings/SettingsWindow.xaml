@@ -180,6 +180,29 @@
                                 <StackPanel x:Name="PropertiesPanel"/>
                             </StackPanel>
 
+                            <!-- Playlist: the monitor goes through these on its own. -->
+                            <StackPanel x:Name="PlaylistSection">
+                                <Grid Margin="0,18,0,6">
+                                    <TextBlock Text="PLAYLIST DESTE MONITOR" Style="{StaticResource Label}" Margin="0"/>
+                                    <Button x:Name="PlaylistNext" Content="Próximo agora" Style="{StaticResource Quiet}" HorizontalAlignment="Right" Padding="8,2" Click="PlaylistNext_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="PlaylistHint" Style="{StaticResource Muted}"/>
+                                <StackPanel x:Name="PlaylistEntries" Margin="0,6,0,0"/>
+                                <StackPanel x:Name="PlaylistOptions">
+                                    <CheckBox x:Name="PlaylistOn" Content="Trocar sozinho" Margin="0,10,0,0" Click="Playlist_Changed"/>
+                                    <Border Style="{StaticResource SegmentBar}" Margin="0,8,0,0">
+                                        <StackPanel x:Name="PlaylistMinutes" Orientation="Horizontal"/>
+                                    </Border>
+                                    <Border Style="{StaticResource SegmentBar}" Margin="0,8,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton x:Name="PlaylistInOrder" Content="Em ordem" Style="{StaticResource Segment}" GroupName="plorder" Checked="Playlist_Changed"/>
+                                            <RadioButton x:Name="PlaylistShuffle" Content="Aleatório" Style="{StaticResource Segment}" GroupName="plorder" Margin="0" Checked="Playlist_Changed"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                                <Button x:Name="PlaylistAddCurrent" Content="Pôr o atual na playlist" Margin="0,10,0,0" HorizontalAlignment="Left" Click="PlaylistAddCurrent_Click"/>
+                            </StackPanel>
+
                             <Button x:Name="RemoveButton" Content="Voltar ao papel de parede do Windows" Margin="0,22,0,0" HorizontalAlignment="Left" Click="Remove_Click"/>
                         </StackPanel>
                     </StackPanel>
@@ -211,6 +234,21 @@
                         </Border>
                         <TextBlock Text="Tirar da memória libera a RAM e a memória da placa de vídeo para o jogo; o wallpaper volta em menos de um segundo quando você sai." Style="{StaticResource Muted}" Margin="0,8,0,0"/>
                         <CheckBox x:Name="FullscreenAll" Content="Tela cheia num monitor pausa os outros também" Margin="0,14,0,0" Click="Option_Changed"/>
+
+                        <TextBlock Text="PROGRAMAS QUE PAUSAM TUDO" Style="{StaticResource Label}" Margin="0,20,0,6"/>
+                        <TextBlock Text="Enquanto um deles estiver aberto, os wallpapers pausam ou saem da memória, mesmo sem tela cheia. Bom para quem disputa a placa: After Effects, Premiere, Blender, ComfyUI." Style="{StaticResource Muted}"/>
+                        <StackPanel x:Name="ProgramRulesList" Margin="0,8,0,0"/>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="ProgramRuleBox" KeyDown="ProgramRuleBox_KeyDown" TextChanged="ProgramRuleBox_TextChanged"/>
+                            <TextBlock x:Name="ProgramRuleHint" Text="nome do programa, como AfterFX.exe" Foreground="{DynamicResource Ink3}" Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                            <Button Grid.Column="1" Content="Adicionar" Margin="8,0,0,0" Click="AddProgramRule_Click"/>
+                            <Button x:Name="PickProgramButton" Grid.Column="2" Content="Dos abertos" Margin="8,0,0,0" Click="PickProgram_Click"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
