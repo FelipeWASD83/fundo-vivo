@@ -98,6 +98,21 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
     comando de teste `{"cmd":"pan","x":..,"y":..}` move o "cursor" sem tocar no mouse: assim o pan foi fotografado.
   - A conversão roda em `FundoVivo.exe --convert-scenes` (fila em `%LOCALAPPDATA%\FundoVivo\scene-jobs`, um mutex
     por vez), nunca no motor. Pronta, grava `ConvertedScenes` e, se pedido, o monitor, e manda `reload`.
+  - **Cenas de imagem animada única, direto da folha** (2.2.0; `Core/SpriteScene.cs`, `Core/WeTexture.cs`): um objeto
+    `image` visível só, sem `effects`, sem partícula, texto, som, modelo ou luz, cor e alpha normais, cobrindo a
+    `orthogonalprojection` inteira (ou o modelo antigo de GIF, que não guarda tamanho), e a textura do material em
+    RGBA (formato 0) com a flag de animada. Marca `SceneTraits.Direct` (tag "Vira vídeo direto"; 14 das 224 dele).
+    O `.tex` é lido inteiro (LZ4 de bloco escrito à mão, só o mipmap 0) e cada quadro é recortado da folha e mandado
+    cru para o ffmpeg, que cobre o monitor (com a sobra do parallax, se tiver) com `neighbor` quando a textura é de
+    filtro de ponto. Tempos iguais tocam no próprio ritmo (0,06 s = 16,7 fps); desiguais vão para uma grade de 60. A
+    sequência se repete inteira até passar de 10 s. Tabela de quadros: 32 bytes (imagem, tempo, x, y, largura, dois
+    de rotação, altura), em float, **menos a `TEXS0001`, que guarda o retângulo em int32** (Aesthetic City). Quadro
+    girado ou textura em outro formato: `null`, e a cena volta para a gravação pelo Wallpaper Engine. O cache das
+    cenas tem `Version` (2): tag nova na classificação = subir o número, senão as entradas antigas não mudam.
+  - **GIF do usuário animado** (2.2.0, `Core/GifConverter.cs`): GIF com mais de um quadro vira vídeo ao ser posto no
+    monitor (job `kind: gif`, `ConvertedScenes` com `SourceStamp`, atribuição `video` com `sceneId`). Pequeno (altura
+    até metade da do monitor) é ampliado por fator inteiro com `neighbor`; grande vai para a altura do monitor. Pela
+    ilha ele ainda chega como `image` e mostra o primeiro quadro.
   - **Testar conversão daqui**: os processos abertos pelo app do Claude enxergam um AppData virtual, e o Wallpaper
     Engine não acharia a cópia desempacotada. Use `FUNDOVIVO_HOME` numa pasta fora do AppData (`build\test-home`).
 - **Formato próprio `.vivo`** (2.0.0; `Core/Packages.cs`, `Core/PackageRenderer.cs`, `Runtime/`, `docs/formato-vivo.md`,

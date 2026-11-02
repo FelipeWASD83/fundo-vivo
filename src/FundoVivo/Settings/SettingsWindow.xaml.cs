@@ -533,6 +533,35 @@ public partial class SettingsWindow : Window
             UpdateSidePanel();
             return;
         }
+        if (item.Type == WallpaperType.Image && !item.FromWallpaperEngine && GifConverter.IsAnimated(item.File))
+        {
+            // An animated GIF plays as a video made for this monitor's size (the image wallpaper shows one frame).
+            string stamp = Packages.Stamp(item.File);
+            var made = _config.ConvertedScenes.FirstOrDefault(c => c.SceneId == item.Id && c.MonitorWidth == monitor.Bounds.Width
+                && c.MonitorHeight == monitor.Bounds.Height && c.SourceStamp == stamp && File.Exists(c.Output));
+            if (made == null)
+            {
+                if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, "Para o GIF animar, o ffmpeg precisa estar no PATH.", AppPaths.AppName); return; }
+                SceneJobs.Enqueue(new SceneJob
+                {
+                    Kind = "gif", ItemId = item.Id, PackageFile = item.File, SceneTitle = item.Title, MonitorId = monitor.Id, MonitorName = monitor.Label,
+                    Width = monitor.Bounds.Width, Height = monitor.Bounds.Height, Duration = 0, Crossfade = 0,
+                });
+                _sceneJobSeen = null;
+                RefreshSceneJob();
+                return;
+            }
+            FlushSettings();
+            Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
+            {
+                ItemId = item.Id, Type = WallpaperType.Video, File = made.Output, Title = item.Title, MonitorName = monitor.Label, SceneId = item.Id,
+            });
+            Notify("reload");
+            RenderLibrary();
+            DrawMonitors();
+            UpdateSidePanel();
+            return;
+        }
         if (item.Type == WallpaperType.Package && !item.Realtime)
         {
             // Nothing in it depends on the moment: it plays as the video rendered for this monitor, made first if needed.
@@ -588,6 +617,18 @@ public partial class SettingsWindow : Window
         var monitor = SelectedMonitor;
         if (monitor == null) return;
         if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, "Para converter cenas, o ffmpeg precisa estar no PATH.", AppPaths.AppName); return; }
+        if (item.Traits.HasFlag(SceneTraits.Direct))
+        {
+            // Cut straight from its sprite sheet: the loop is the scene's own, so there is nothing to choose.
+            SceneJobs.Enqueue(new SceneJob
+            {
+                SceneFolder = item.Folder, SceneTitle = item.Title, MonitorId = monitor.Id, MonitorName = monitor.Label,
+                Width = monitor.Bounds.Width, Height = monitor.Bounds.Height, Duration = 0, Crossfade = 0,
+            });
+            _sceneJobSeen = null;
+            RefreshSceneJob();
+            return;
+        }
         string we = SceneConverter.FindWallpaperEngine();
         if (we == null) { MessageBox.Show(this, "O Wallpaper Engine não foi encontrado: é ele que desenha a cena para a gravação.", AppPaths.AppName); return; }
         var dialog = new SceneDialog(this, item, monitor, _config.SceneDuration, _config.SceneCrossfade, SceneConverter.WallpaperEngineFps(we));
@@ -785,6 +826,8 @@ public partial class SettingsWindow : Window
             ? a.Type == WallpaperType.Web
                 ? $"Vivo ao vivo (reage ao som) · {state}"
                 : $"Vivo renderizado em vídeo · {state}" + (a.ParallaxMargin > 0 ? ". O parallax virou um pan com o mouse: o vídeo inteiro anda junto." : "")
+            : a.SceneId != null && Path.GetExtension(_scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.File ?? "").Equals(".gif", StringComparison.OrdinalIgnoreCase)
+            ? $"GIF animado, tocando como vídeo · {state}"
             : a.SceneId != null
             ? $"Cena convertida · {state}" + (a.ParallaxMargin > 0 ? ". O parallax virou um pan com o mouse: o vídeo inteiro anda junto, sem a profundidade de cada camada." : "")
             : $"{TypeName(a.Type)} · {source} · {state}";

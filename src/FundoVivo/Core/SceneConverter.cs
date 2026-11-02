@@ -93,6 +93,10 @@ public static class SceneConverter
     public static async Task<SceneResult> ConvertAsync(SceneJob job, IProgress<(double, string)> progress, CancellationToken cancel)
     {
         var scene = SceneProject.Load(job.SceneFolder) ?? throw new InvalidOperationException("Essa pasta não é uma cena do Wallpaper Engine.");
+        // A single animated picture is cut straight from its sprite sheet: no Wallpaper Engine, no recording.
+        if (scene.Traits.HasFlag(SceneTraits.Direct) && scene.SpriteTexture() is { } sheet
+            && await SpriteScene.ConvertAsync(job, scene, sheet, progress, cancel) is { } direct)
+            return direct;
         string we = FindWallpaperEngine() ?? throw new InvalidOperationException("O Wallpaper Engine não foi encontrado neste PC.");
         string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException("O ffmpeg não foi encontrado no PATH.");
         int fps = WallpaperEngineFps(we);

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0 (02/11/2026)
+
+### Novo
+- Cenas do Wallpaper Engine que são uma imagem animada só (as 12 de GIF, o Pixel Cyberpunk Coffee, o buh - the cat; 14 na sua biblioteca) viram vídeo direto da folha de quadros, sem abrir o Wallpaper Engine: sem janela piscando, sem gravação, em poucos segundos, e com o loop exato da própria cena. Elas ganham a tag **Vira vídeo direto** e não pedem duração nem emenda.
+- GIF animado que você adiciona passa a animar: ao pôr num monitor, ele vira vídeo para aquele tamanho (a barra da Biblioteca mostra) e toca em loop. GIF pequeno, de pixel art, é ampliado sem borrar.
+
 ## 2.1.2 (02/11/2026)
 
 ### Corrigido

@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 2.1.2)
+# Fundo Vivo: tudo que tem no app (versão 2.2.0)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele
@@ -119,6 +119,9 @@ num vídeo em loop para o monitor escolhido, e quem desenha durante a gravação
 - **Som:** o que estiver tocando no PC durante a gravação fica gravado na animação. Converta com o som parado.
 - **Parallax:** o vídeo sai um pouco maior que a tela (até 15% de cada lado) e anda com o mouse. É uma aproximação: o
   vídeo inteiro anda junto, sem a profundidade de cada camada. Só em **Preencher**.
+- **Imagem animada só (tag Vira vídeo direto):** as cenas que são uma imagem animada e nada mais (as 12 de GIF, o
+  Pixel Cyberpunk Coffee, o buh - the cat) não passam pelo Wallpaper Engine: o Fundo Vivo lê a folha de quadros da
+  cena e monta o vídeo direto, em poucos segundos, com o loop exato dela. Não pede duração nem emenda.
 - **Fps:** o vídeo sai no limite de fps do seu Wallpaper Engine (hoje 30). Para cenas a 60, suba o limite nos ajustes
   dele antes de converter.
 - **Botão direito numa cena:** **Converter de novo para este monitor** e **Apagar as conversões desta cena**.
@@ -158,8 +161,9 @@ e parallax. Como fazer um, com todos os campos: [`formato-vivo.md`](formato-vivo
 - **Vídeo:** toca pelo player do próprio Windows, decodificado na placa de vídeo, em loop. Toca o que o Windows tem
   codec para tocar (H.264, que é o de todos os seus vídeos do Wallpaper Engine, e outros como HEVC e VP9 se as
   extensões estiverem instaladas). Não aparece no painel de mídia do Windows nem responde às teclas de mídia.
-- **Imagem:** decodificada uma vez no tamanho exato do monitor; depois não gasta nada. GIF animado mostra só o
-  primeiro quadro.
+- **Imagem:** decodificada uma vez no tamanho exato do monitor; depois não gasta nada. **GIF animado** vira vídeo ao
+  ser posto num monitor (a barra da Biblioteca mostra) e toca em loop; GIF pequeno, de pixel art, é ampliado sem
+  borrar.
 - **Web:** a página roda no WebView2 (o Edge que vem no Windows). Os wallpapers web do Wallpaper Engine recebem as
   mesmas funções que recebem lá: as opções do autor, o fps do monitor, o aviso de pausa e o som do PC em 64 faixas por
   canal, cerca de 30 vezes por segundo. Cada wallpaper tem o seu próprio armazenamento, sem misturar com os outros.

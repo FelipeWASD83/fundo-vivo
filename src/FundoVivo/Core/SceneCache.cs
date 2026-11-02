@@ -9,8 +9,12 @@ namespace FundoVivo.Core;
 /// </summary>
 public static class SceneCache
 {
+    /// <summary>Raised when the classification learns something new, so the entries made before are read again.</summary>
+    const int CurrentVersion = 2;
+
     sealed class Entry
     {
+        public int Version { get; set; }
         public long Size { get; set; }
         public DateTime Modified { get; set; }
         public string Title { get; set; }
@@ -46,7 +50,7 @@ public static class SceneCache
         long size; DateTime modified;
         try { var fi = new FileInfo(stamp); size = fi.Length; modified = fi.LastWriteTimeUtc; } catch { return null; }
         var entries = Entries();
-        if (entries.TryGetValue(folder, out var e) && e.Size == size && e.Modified == modified)
+        if (entries.TryGetValue(folder, out var e) && e.Version == CurrentVersion && e.Size == size && e.Modified == modified)
             return new SceneProject
             {
                 Folder = folder, Title = e.Title, SceneFile = e.SceneFile, Preview = e.Preview, Tags = e.Tags ?? new List<string>(),
@@ -56,7 +60,7 @@ public static class SceneCache
         if (scene == null) return null;
         entries[folder] = new Entry
         {
-            Size = size, Modified = modified, Title = scene.Title, SceneFile = scene.SceneFile, Preview = scene.Preview,
+            Version = CurrentVersion, Size = size, Modified = modified, Title = scene.Title, SceneFile = scene.SceneFile, Preview = scene.Preview,
             Tags = scene.Tags.ToList(), ContentRating = scene.ContentRating, Traits = scene.Traits, ParallaxAmount = scene.ParallaxAmount,
         };
         _dirty = true;

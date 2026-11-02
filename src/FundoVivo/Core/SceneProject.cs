@@ -14,6 +14,8 @@ public enum SceneTraits
     Sound = 2,
     MouseOrClock = 4,
     Unreadable = 8,
+    /// <summary>A single animated picture: becomes a video straight from its sprite sheet (SpriteScene), loop exact.</summary>
+    Direct = 16,
 }
 
 /// <summary>
@@ -34,7 +36,7 @@ public sealed class SceneProject
 
     public string Id => Library.IdFor(Path.Combine(Folder, "project.json"));
 
-    public static readonly string[] TraitTags = { "Converte sem perder nada", "Parallax vira pan", "Perde reação ao som", "Perde mouse/relógio", "Sem leitura" };
+    public static readonly string[] TraitTags = { "Converte sem perder nada", "Parallax vira pan", "Perde reação ao som", "Perde mouse/relógio", "Sem leitura", "Vira vídeo direto" };
 
     /// <summary>The automatic tags for the library filter.</summary>
     public IEnumerable<string> ClassificationTags()
@@ -44,6 +46,32 @@ public sealed class SceneProject
         if (Traits.HasFlag(SceneTraits.Parallax)) yield return TraitTags[1];
         if (Traits.HasFlag(SceneTraits.Sound)) yield return TraitTags[2];
         if (Traits.HasFlag(SceneTraits.MouseOrClock)) yield return TraitTags[3];
+        if (Traits.HasFlag(SceneTraits.Direct)) yield return TraitTags[5];
+    }
+
+    /// <summary>One entry of the package, whole.</summary>
+    public byte[] ReadPackageEntry(string name)
+    {
+        string pkg = PackageOf(Folder, SceneFile);
+        var table = ReadTable(pkg);
+        if (!table.TryGetValue(name, out var e)) throw new FileNotFoundException(name);
+        using var f = File.OpenRead(pkg);
+        return ReadEntry(f, e);
+    }
+
+    /// <summary>The sprite sheet's entry when this scene can become a video without Wallpaper Engine, else null.</summary>
+    public string SpriteTexture()
+    {
+        try
+        {
+            string pkg = PackageOf(Folder, SceneFile);
+            if (!File.Exists(pkg)) return null;
+            var table = ReadTable(pkg);
+            using var f = File.OpenRead(pkg);
+            var scene = JsonNode.Parse(Encoding.UTF8.GetString(ReadEntry(f, table[SceneFile])), documentOptions: Lenient) as JsonObject;
+            return scene == null ? null : SpriteScene.Describe(n => ReadEntry(f, table[n]), (n, len) => ReadHead(f, table[n], len), scene);
+        }
+        catch { return null; }
     }
 
     // ---------------------------------------------------------------- package
@@ -69,6 +97,14 @@ public sealed class SceneProject
         var table = new Dictionary<string, (long, int)>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, off, size) in entries) table[name.Replace('\\', '/')] = (baseOffset + off, size);
         return table;
+    }
+
+    static byte[] ReadHead(FileStream f, (long Offset, int Size) e, int length)
+    {
+        var buf = new byte[Math.Min(length, e.Size)];
+        f.Position = e.Offset;
+        f.ReadExactly(buf);
+        return buf;
     }
 
     static byte[] ReadEntry(FileStream f, (long Offset, int Size) e)
@@ -127,7 +163,7 @@ public sealed class SceneProject
         foreach (string d in Directory.GetDirectories(from)) CopyTree(d, Path.Combine(to, Path.GetFileName(d)));
     }
 
-    static readonly JsonDocumentOptions Lenient = new() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip };
+    internal static readonly JsonDocumentOptions Lenient = new() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip };
 
     // ---------------------------------------------------------------- reading and classifying
 
@@ -170,11 +206,18 @@ public sealed class SceneProject
         }
         catch { traits = SceneTraits.Unreadable; }
 
-        return new SceneProject
+        var result = new SceneProject
         {
             Folder = folder, Title = title, SceneFile = sceneFile, Preview = preview, Tags = tags,
             ContentRating = project["contentrating"]?.ToString(), Traits = traits, ParallaxAmount = amount,
         };
+        if (!traits.HasFlag(SceneTraits.Unreadable) && result.SpriteTexture() != null)
+            result = new SceneProject
+            {
+                Folder = folder, Title = title, SceneFile = sceneFile, Preview = preview, Tags = tags,
+                ContentRating = result.ContentRating, Traits = traits | SceneTraits.Direct, ParallaxAmount = amount,
+            };
+        return result;
     }
 
     /// <summary>

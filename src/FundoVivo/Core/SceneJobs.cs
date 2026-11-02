@@ -135,12 +135,12 @@ public static class SceneJobs
         });
         try
         {
-            bool package = job.Kind == "package";
-            string stamp = package ? Packages.Stamp(job.PackageFile) : null;
-            var result = package
-                ? PackageRenderer.Render(job, progress, cts.Token)
+            bool package = job.Kind == "package", gif = job.Kind == "gif", fromFile = package || gif;
+            string stamp = fromFile ? Packages.Stamp(job.PackageFile) : null;
+            var result = package ? PackageRenderer.Render(job, progress, cts.Token)
+                : gif ? GifConverter.ConvertAsync(job, progress, cts.Token).GetAwaiter().GetResult()
                 : SceneConverter.ConvertAsync(job, progress, cts.Token).GetAwaiter().GetResult();
-            string id = package ? job.ItemId : SceneProject.Load(job.SceneFolder).Id;
+            string id = fromFile ? job.ItemId : SceneProject.Load(job.SceneFolder).Id;
             string title = job.SceneTitle;
             ConfigStore.Mutate(c =>
             {
@@ -151,7 +151,7 @@ public static class SceneJobs
                     try { File.Delete(o.Output); } catch { }
                 c.ConvertedScenes.Add(new ConvertedScene
                 {
-                    SceneId = id, SceneFolder = package ? job.PackageFile : job.SceneFolder, Title = title, MonitorWidth = job.Width, MonitorHeight = job.Height,
+                    SceneId = id, SceneFolder = fromFile ? job.PackageFile : job.SceneFolder, Title = title, MonitorWidth = job.Width, MonitorHeight = job.Height,
                     Output = result.Output, VideoWidth = result.Width, VideoHeight = result.Height, Margin = result.Margin, Fps = result.Fps,
                     Duration = job.Duration, Created = DateTime.Now, SourceStamp = stamp,
                 });
@@ -167,7 +167,7 @@ public static class SceneJobs
             status.State = "done";
             status.Progress = 1;
             status.Message = "Pronto";
-            Log.Write($"{(package ? "vivo rendered" : "scene converted")}: {title} {job.Width}x{job.Height} -> {result.Output} ({result.Width}x{result.Height}, margin {result.Margin:0.###}, {result.Fps} fps)");
+            Log.Write($"{(package ? "vivo rendered" : gif ? "gif converted" : "scene converted")}: {title} {job.Width}x{job.Height} -> {result.Output} ({result.Width}x{result.Height}, margin {result.Margin:0.###}, {result.Fps} fps)");
         }
         catch (OperationCanceledException)
         {
