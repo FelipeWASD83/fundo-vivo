@@ -12,22 +12,28 @@ namespace FundoVivo.Settings;
 /// </summary>
 public static class ThemeManager
 {
-    // Same paper-and-ink idea in both: the dark one is a warm charcoal, not pure black, so the wallpaper
-    // thumbnails stay the brightest thing on screen.
+    // The look of his Windows pack (the ilha pill and its Control Center menu, the Relógio Mond): black, blocks and
+    // controls as translucent white over it, text in white at full, 58% and 35%, and the system colours for state.
+    // The monitor block is that same black-pill tile in both themes: it is where the wallpapers are shown.
+    static readonly Dictionary<string, string> Stage = new()
+    {
+        ["Stage"] = "#1C1C1E", ["StageLine"] = "#2C2C2E", ["StageInk"] = "#FFFFFF", ["StageInk2"] = "#94FFFFFF",
+    };
+
     static readonly Dictionary<string, string> Light = new()
     {
-        ["Paper"] = "#F3F1EC", ["Surface"] = "#FFFFFF", ["Well"] = "#E8E5DE", ["Line"] = "#D9D5CC",
-        ["Ink"] = "#1D1B18", ["Ink2"] = "#5E5951", ["Ink3"] = "#8C867C", ["OnInk"] = "#FFFFFF",
-        ["Hover"] = "#0F1D1B18", ["KnobOff"] = "#FFFFFF", ["KnobOn"] = "#FFFFFF",
-        ["Playing"] = "#2F7D4F", ["Paused"] = "#B7791F", ["Problem"] = "#B3412E",
+        ["Paper"] = "#F2F2F7", ["Surface"] = "#FFFFFF", ["Well"] = "#E5E5EA", ["Line"] = "#D1D1D6",
+        ["Ink"] = "#000000", ["Ink2"] = "#6C6C70", ["Ink3"] = "#A1A1A6", ["OnInk"] = "#FFFFFF",
+        ["Hover"] = "#0F000000", ["KnobOff"] = "#FFFFFF", ["KnobOn"] = "#FFFFFF",
+        ["Playing"] = "#28A745", ["Paused"] = "#E08600", ["Problem"] = "#E5372D",
     };
 
     static readonly Dictionary<string, string> Dark = new()
     {
-        ["Paper"] = "#161513", ["Surface"] = "#201F1C", ["Well"] = "#2B2925", ["Line"] = "#3A3732",
-        ["Ink"] = "#EDE9E2", ["Ink2"] = "#B5AFA5", ["Ink3"] = "#8A847A", ["OnInk"] = "#161513",
-        ["Hover"] = "#14FFFFFF", ["KnobOff"] = "#B5AFA5", ["KnobOn"] = "#161513",
-        ["Playing"] = "#5CB37F", ["Paused"] = "#D9A441", ["Problem"] = "#E07A63",
+        ["Paper"] = "#000000", ["Surface"] = "#1C1C1E", ["Well"] = "#2C2C2E", ["Line"] = "#38383A",
+        ["Ink"] = "#FFFFFF", ["Ink2"] = "#94FFFFFF", ["Ink3"] = "#59FFFFFF", ["OnInk"] = "#000000",
+        ["Hover"] = "#10FFFFFF", ["KnobOff"] = "#FFFFFF", ["KnobOn"] = "#000000",
+        ["Playing"] = "#30D158", ["Paused"] = "#FF9F0A", ["Problem"] = "#FF453A",
     };
 
     public static bool IsDark { get; private set; }
@@ -49,7 +55,7 @@ public static class ThemeManager
         bool first = Application.Current.Resources["Paper"] == null;
         if (!first && dark == IsDark) return;
         IsDark = dark;
-        foreach (var (key, hex) in dark ? Dark : Light)
+        foreach (var (key, hex) in (dark ? Dark : Light).Concat(Stage))
         {
             var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
             brush.Freeze();

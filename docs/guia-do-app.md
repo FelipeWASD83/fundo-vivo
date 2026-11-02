@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 2.0.0)
+# Fundo Vivo: tudo que tem no app (versão 2.1.0)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele

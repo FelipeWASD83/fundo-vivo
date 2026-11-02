@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Windows;
@@ -112,22 +112,24 @@ public partial class SettingsWindow : Window
         if (_monitors.Count == 0 || MonitorCanvas.ActualWidth <= 0) return;
         int minX = _monitors.Min(m => m.Bounds.Left), minY = _monitors.Min(m => m.Bounds.Top);
         int maxX = _monitors.Max(m => m.Bounds.Right), maxY = _monitors.Max(m => m.Bounds.Bottom);
-        double gap = 8;
-        double scale = Math.Min((MonitorCanvas.ActualWidth - gap * _monitors.Count) / (maxX - minX), MonitorCanvas.ActualHeight / (double)(maxY - minY));
+        // room under the monitors for their names, and the selection ring around them
+        const double gap = 18, captionRoom = 30, ring = 5;
+        double scale = Math.Min((MonitorCanvas.ActualWidth - gap * _monitors.Count - 2 * ring) / (maxX - minX),
+            (MonitorCanvas.ActualHeight - captionRoom - 2 * ring) / (double)(maxY - minY));
         double used = (maxX - minX) * scale + gap * (_monitors.Count - 1);
-        double offsetX = Math.Max(0, (MonitorCanvas.ActualWidth - used) / 2);
+        double offsetX = Math.Max(ring, (MonitorCanvas.ActualWidth - used) / 2);
 
         foreach (var m in _monitors)
         {
             int index = _monitors.Count(o => o.Bounds.Left < m.Bounds.Left);
             double x = offsetX + (m.Bounds.Left - minX) * scale + index * gap;
-            double y = (m.Bounds.Top - minY) * scale;
+            double y = ring + (m.Bounds.Top - minY) * scale;
             double w = m.Bounds.Width * scale, h = m.Bounds.Height * scale;
             bool selected = m.Id == _selectedMonitor;
 
             var image = new Image { Stretch = Stretch.UniformToFill };
-            var grid = new Grid { ClipToBounds = true };
-            grid.Children.Add(new Border { Background = (Brush)FindResource("Well") });
+            var grid = new Grid { Width = w, Height = h, Clip = new RectangleGeometry(new Rect(0, 0, w, h), 6, 6) };
+            grid.Children.Add(new Border { Background = (Brush)FindResource("StageLine") });
             grid.Children.Add(image);
             if (_config.Monitors.TryGetValue(m.Id, out var a) && a != null)
             {
@@ -136,34 +138,36 @@ public partial class SettingsWindow : Window
             }
             else
             {
-                grid.Children.Add(new TextBlock { Text = "Papel de parede do Windows", FontSize = 11, Foreground = (Brush)FindResource("Ink3"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(6) });
+                grid.Children.Add(new TextBlock { Text = "Papel de parede do Windows", FontSize = 11, Foreground = (Brush)FindResource("StageInk2"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(6) });
             }
 
-            var caption = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(0xD8, 0x1D, 0x1B, 0x18)),
-                VerticalAlignment = VerticalAlignment.Bottom,
-                Padding = new Thickness(8, 4, 8, 5),
-            };
-            var line = new StackPanel { Orientation = Orientation.Horizontal };
+            // The chosen monitor is lit and ringed; the others sit a little dimmer until the mouse is over them.
             var (stateText, stateBrush) = StateLabel(m.Id);
-            line.Children.Add(new Ellipse { Width = 7, Height = 7, Fill = stateBrush, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
-            line.Children.Add(new TextBlock { Text = $"{m.Label}  {m.Bounds.Width}×{m.Bounds.Height}", Foreground = Brushes.White, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis });
-            caption.Child = line;
-            caption.ToolTip = stateText;
-            grid.Children.Add(caption);
-
             var frame = new Border
             {
-                Width = w, Height = h, CornerRadius = new CornerRadius(6), Child = grid, Cursor = Cursors.Hand,
-                BorderBrush = (Brush)FindResource(selected ? "Ink" : "Line"), BorderThickness = new Thickness(selected ? 3 : 1),
+                Child = grid, Cursor = Cursors.Hand, CornerRadius = new CornerRadius(6 + ring), Padding = new Thickness(ring - 2),
+                BorderThickness = new Thickness(2), BorderBrush = selected ? (Brush)FindResource("StageInk") : Brushes.Transparent,
+                Background = Brushes.Transparent, Opacity = selected ? 1 : 0.62,
                 ToolTip = $"{m.Label}\n{m.Bounds.Width} × {m.Bounds.Height}, {m.RefreshRate:0} Hz{(m.Primary ? ", principal" : "")}\n{stateText}",
             };
-            grid.Clip = null;
+            if (!selected)
+            {
+                frame.MouseEnter += (_, _) => frame.Opacity = 1;
+                frame.MouseLeave += (_, _) => frame.Opacity = 0.62;
+            }
             frame.MouseLeftButtonUp += (_, _) => { _selectedMonitor = m.Id; DrawMonitors(); UpdateSidePanel(); RenderLibrary(); };
-            Canvas.SetLeft(frame, x);
-            Canvas.SetTop(frame, y);
+            Canvas.SetLeft(frame, x - ring);
+            Canvas.SetTop(frame, y - ring);
             MonitorCanvas.Children.Add(frame);
+
+            // under it: the state dot, the name in full ink when chosen, the size in the softer grey
+            var caption = new TextBlock { Width = Math.Max(w, 120), TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, IsHitTestVisible = false };
+            caption.Inlines.Add(new System.Windows.Documents.InlineUIContainer(new Ellipse { Width = 7, Height = 7, Fill = stateBrush, Margin = new Thickness(0, 0, 7, 1) }));
+            caption.Inlines.Add(new System.Windows.Documents.Run(m.Label) { Foreground = (Brush)FindResource(selected ? "StageInk" : "StageInk2"), FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal });
+            caption.Inlines.Add(new System.Windows.Documents.Run($"  {m.Bounds.Width}×{m.Bounds.Height}") { Foreground = (Brush)FindResource("StageInk2") });
+            Canvas.SetLeft(caption, x);
+            Canvas.SetTop(caption, y + h + ring + 6);
+            MonitorCanvas.Children.Add(caption);
         }
     }
 
@@ -271,6 +275,7 @@ public partial class SettingsWindow : Window
         string q = SearchBox.Text.Trim();
         var compare = CultureInfo.InvariantCulture.CompareInfo;
         var ofType = _scan.Items.Where(i => type == null || i.Type == type).ToList();
+        SetFilterCounts();
         RenderTagFilters(ofType);
         var items = ofType
             .Where(i => q.Length == 0 || compare.IndexOf(i.Title, q, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0)
@@ -285,13 +290,48 @@ public partial class SettingsWindow : Window
             LibraryList.Items.Add(new TextBlock { Text = _scan.Items.Count == 0 ? "Nada na biblioteca ainda. Use Adicionar arquivo para colocar um vídeo, imagem ou página." : "Nada com esse filtro.", Style = (Style)FindResource("Muted"), Margin = new Thickness(2, 8, 0, 0) });
     }
 
+    /// <summary>Each type filter says how many it holds, the count in the softer grey.</summary>
+    void SetFilterCounts()
+    {
+        void Set(RadioButton button, string name, WallpaperType? t)
+        {
+            int n = _scan.Items.Count(i => t == null || i.Type == t);
+            var text = new TextBlock();
+            text.Inlines.Add(new System.Windows.Documents.Run(name));
+            if (n > 0) text.Inlines.Add(Faint("  " + n));
+            button.Content = text;
+            button.Visibility = n > 0 || t == null || button.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        }
+        Set(FilterAll, "Todos", null);
+        Set(FilterVideo, "Vídeo", WallpaperType.Video);
+        Set(FilterWeb, "Web", WallpaperType.Web);
+        Set(FilterImage, "Imagem", WallpaperType.Image);
+        Set(FilterVivo, "Vivo", WallpaperType.Package);
+        Set(FilterScene, "Cena", WallpaperType.Scene);
+    }
+
+    /// <summary>The softer part of a label: the same colour as the rest, see-through, so it also reads on a lit (white) pill.</summary>
+    static System.Windows.Documents.Inline Faint(string text) =>
+        new System.Windows.Documents.InlineUIContainer(new TextBlock { Text = text, Opacity = 0.55 }) { BaselineAlignment = BaselineAlignment.Baseline };
+
+    bool _tagsOpen;
     readonly HashSet<string> _tagFilter = new();
     readonly HashSet<string> _ratingFilter = new();
 
-    /// <summary>One chip per tag of the current type filter, most used first, then the ratings, then Limpar.</summary>
+    /// <summary>
+    /// "Tags +" opens one chip per tag of the current type filter (most used first), then the ratings, then Limpar.
+    /// Folded, only the chips that are on stay in view, so the filter never hides the library behind a wall of tags.
+    /// </summary>
     void RenderTagFilters(List<LibraryItem> ofType)
     {
         TagFilters.Children.Clear();
+        int on = _tagFilter.Count + _ratingFilter.Count;
+        var toggleText = new TextBlock();
+        toggleText.Inlines.Add(new System.Windows.Documents.Run(_tagsOpen ? "Tags  −" : "Tags  +") { FontWeight = FontWeights.SemiBold });
+        if (on > 0 && !_tagsOpen) toggleText.Inlines.Add(Faint($"  {on} {(on == 1 ? "ligada" : "ligadas")}"));
+        var toggle = new System.Windows.Controls.Primitives.ToggleButton { Content = toggleText, IsChecked = _tagsOpen, Style = (Style)FindResource("Chip") };
+        toggle.Click += (_, _) => { _tagsOpen = !_tagsOpen; RenderLibrary(); };
+        TagFilters.Children.Add(toggle);
         var groups = ofType.SelectMany(i => i.Tags.Select(t => (key: Tags.Key(t), name: t, item: i.Id)))
             .Where(x => x.key.Length > 0)
             .GroupBy(x => x.key)
@@ -301,10 +341,11 @@ public partial class SettingsWindow : Window
         // A checked tag that the current type filter no longer has stays visible, so it can be unchecked.
         foreach (string key in _tagFilter.Where(k => groups.All(g => g.key != k)).ToList())
             groups.Add((key, _scan.Items.SelectMany(i => i.Tags).FirstOrDefault(t => Tags.Key(t) == key) ?? key, 0));
-        foreach (var g in groups)
+        foreach (var g in groups.Where(g => _tagsOpen || _tagFilter.Contains(g.key)))
             TagFilters.Children.Add(Chip(g.name, g.count, _tagFilter.Contains(g.key), on => { if (on) _tagFilter.Add(g.key); else _tagFilter.Remove(g.key); }));
 
-        var ratings = Tags.RatingOrder.Select(r => (name: r, count: ofType.Count(i => i.Rating == r))).Where(r => r.count > 0 || _ratingFilter.Contains(r.name)).ToList();
+        var ratings = Tags.RatingOrder.Select(r => (name: r, count: ofType.Count(i => i.Rating == r)))
+            .Where(r => _ratingFilter.Contains(r.name) || (_tagsOpen && r.count > 0)).ToList();
         if (ratings.Count > 0)
         {
             // One block, so the label never ends a line apart from its chips.
@@ -355,21 +396,21 @@ public partial class SettingsWindow : Window
 
     FrameworkElement Card(LibraryItem item)
     {
-        double width = _cardWidth, thumbHeight = Math.Round(width * 9 / 16);
-        var image = new Image { Stretch = Stretch.UniformToFill };
-        var thumb = new Border { Height = thumbHeight, Background = (Brush)FindResource("Well"), CornerRadius = new CornerRadius(10, 10, 0, 0), ClipToBounds = true };
-        var thumbGrid = new Grid();
+        // No box around it: the picture is the card, rounded like the album art of the Relógio Mond, and a white ring
+        // a few pixels off it marks the one on this monitor.
+        const double ringGap = 3, radius = 16;
+        double width = _cardWidth, inner = width - 2 * (ringGap + 2), thumbHeight = Math.Round(inner * 9 / 16);
+        var image = new Image { Stretch = Stretch.UniformToFill, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(1, 1) };
+        var thumbGrid = new Grid { Width = inner, Height = thumbHeight, Clip = new RectangleGeometry(new Rect(0, 0, inner, thumbHeight), radius, radius) };
+        thumbGrid.Children.Add(new Border { Background = (Brush)FindResource("Surface") });
         thumbGrid.Children.Add(new TextBlock { Text = TypeName(item.Type), Foreground = (Brush)FindResource("Ink3"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
         thumbGrid.Children.Add(image);
-        thumb.Child = thumbGrid;
-        // Rounded top corners on the picture itself (Border.ClipToBounds clips square).
-        thumbGrid.Clip = new RectangleGeometry(new Rect(0, 0, width, thumbHeight + 12), 10, 10);
         Thumbnails.Request(item.Preview, item.File, bmp => image.Source = bmp);
 
         var onMonitors = _config.Monitors.Where(kv => kv.Value?.ItemId == item.Id).Select(kv => _monitors.FirstOrDefault(m => m.Id == kv.Key)?.Label ?? kv.Value.MonitorName).ToList();
         bool here = SelectedAssignment?.ItemId == item.Id;
 
-        var text = new StackPanel { Margin = new Thickness(12, 9, 12, 11) };
+        var text = new StackPanel { Margin = new Thickness(ringGap + 4, 8, ringGap + 4, 0) };
         string tip = item.Title + (item.Tags.Count > 0 ? "\n" + string.Join(" · ", item.Tags) : "") + (item.Rating != null ? "\nClassificação: " + item.Rating : "");
         text.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = tip });
         string meta = TypeName(item.Type) + (item.FromWallpaperEngine ? " · Wallpaper Engine" : item.IsExample ? " · exemplo" : " · seu arquivo");
@@ -388,16 +429,26 @@ public partial class SettingsWindow : Window
         if (onMonitors.Count > 0)
             text.Children.Add(new TextBlock { Text = "Em: " + string.Join(", ", onMonitors), FontSize = 11.5, Foreground = (Brush)FindResource("Ink2"), Margin = new Thickness(0, 3, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
 
-        var stack = new StackPanel();
-        stack.Children.Add(thumb);
-        stack.Children.Add(text);
-        var card = new Border
+        var ring = new Border
         {
-            Width = width, Margin = new Thickness(0, 0, 14, 14), CornerRadius = new CornerRadius(11), Background = (Brush)FindResource("Surface"),
-            BorderBrush = (Brush)FindResource(here ? "Ink" : "Line"), BorderThickness = new Thickness(here ? 2 : 1), Child = stack, Cursor = Cursors.Hand,
+            CornerRadius = new CornerRadius(radius + ringGap + 2), BorderThickness = new Thickness(2), Padding = new Thickness(ringGap), Child = thumbGrid,
+            BorderBrush = here ? (Brush)FindResource("Ink") : Brushes.Transparent,
         };
-        card.MouseEnter += (_, _) => { if (!here) card.BorderBrush = (Brush)FindResource("Ink3"); };
-        card.MouseLeave += (_, _) => { if (!here) card.BorderBrush = (Brush)FindResource("Line"); };
+        var stack = new StackPanel();
+        stack.Children.Add(ring);
+        stack.Children.Add(text);
+        var card = new Border { Width = width, Margin = new Thickness(0, 0, 14, 20), Background = Brushes.Transparent, Child = stack, Cursor = Cursors.Hand };
+        // a slow, small push into the picture on hover, the only motion in the library
+        var zoom = (ScaleTransform)image.RenderTransform;
+        void Zoom(double to)
+        {
+            var a = new System.Windows.Media.Animation.DoubleAnimation(to, TimeSpan.FromMilliseconds(260))
+            { EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut } };
+            zoom.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+            zoom.BeginAnimation(ScaleTransform.ScaleYProperty, a);
+        }
+        card.MouseEnter += (_, _) => { Zoom(1.04); if (!here) ring.BorderBrush = (Brush)FindResource("Line"); };
+        card.MouseLeave += (_, _) => { Zoom(1); if (!here) ring.BorderBrush = Brushes.Transparent; };
         card.MouseLeftButtonUp += (_, _) => Assign(item);
 
         var menu = new ContextMenu();
@@ -657,7 +708,16 @@ public partial class SettingsWindow : Window
         {
             var m = SelectedMonitor;
             var a = SelectedAssignment;
-            SideMonitorName.Text = m == null ? "" : $"{m.Label} · {m.Bounds.Width}×{m.Bounds.Height} · {m.RefreshRate:0} Hz{(m.Primary ? " · principal" : "")}";
+            // the monitor's name in full ink, its size and rate in the softer grey after it
+            SideMonitorName.Inlines.Clear();
+            if (m != null)
+            {
+                SideMonitorName.Inlines.Add(new System.Windows.Documents.Run(m.Label));
+                var details = new System.Windows.Documents.Run($"   {m.Bounds.Width}×{m.Bounds.Height} · {m.RefreshRate:0} Hz{(m.Primary ? " · principal" : "")}")
+                { FontFamily = (FontFamily)FindResource("Text"), FontWeight = FontWeights.Normal, FontSize = 12.5 };
+                details.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Ink2");
+                SideMonitorName.Inlines.Add(details);
+            }
             SideThumb.Source = null;
             if (a == null)
             {
@@ -698,6 +758,10 @@ public partial class SettingsWindow : Window
         }
         finally { _loading = false; }
     }
+
+    // Border.CornerRadius does not clip what is inside; the preview is cut to the same rounded shape by hand.
+    void SideThumbHost_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        SideThumbHost.Clip = new RectangleGeometry(new Rect(e.NewSize), 16, 16);
 
     static void SetLabelVisibility(FrameworkElement segment, bool visible)
     {

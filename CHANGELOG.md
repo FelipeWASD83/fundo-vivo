@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0 (02/11/2026)
+
+### Mudou
+- Visual novo, da mesma família da Ilha e do Relógio Mond: fundo preto (ou cinza bem claro no tema claro), blocos com canto bem redondo e sem borda, botões e filtros em pílula, o escolhido em branco, e os títulos na mesma fonte do relógio (Quicksand).
+- Os monitores ficam num bloco escuro, maiores, com o nome embaixo de cada um; o escolhido fica aceso e com um anel, os outros um pouco apagados.
+- Na Biblioteca, a imagem é o cartão: canto arredondado, título embaixo, anel no que está no monitor e um leve zoom ao passar o mouse.
+- Cada filtro de tipo mostra quantos tem, e o tipo sem nenhum wallpaper some.
+- As tags ficam recolhidas num botão **Tags**; fechado, só as que estão ligadas aparecem.
+
 ## 2.0.0 (02/11/2026)
 
 ### Novo

@@ -46,7 +46,14 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
 - **Monitores** (`Core/Monitors.cs`): o id estável é o caminho do monitor do `QueryDisplayConfig`
   (`\\?\DISPLAY#AUS342B#...`), não o `\\.\DISPLAYn`, que muda com a ordem dos cabos.
 
-- **Tema** (`Settings/ThemeManager.cs`): duas paletas (claro e um escuro de carvão quente, nunca preto puro) postas
+- **Tema** (`Settings/ThemeManager.cs`, 2.1.0): a cara do pack de programas dele para o Windows, igual à da `ilha`
+  (a pílula e o menu estilo Central de Controle, **não** a janela de configurações dela, que ele acha feia) e à do
+  `relogio-mond`: escuro em preto puro com os cinzas de sistema da Apple (`#1C1C1E`, `#2C2C2E`), texto branco a
+  100/58/35%, cores de estado de sistema (verde `#30D158`, laranja `#FF9F0A`, vermelho `#FF453A`); claro em `#F2F2F7`.
+  Blocos com raio 22 a 26 e sem borda, controles em pílula (o escolhido é branco com texto preto, como os blocos
+  ativos da ilha), botões e campos preenchidos sem borda. O bloco dos monitores (`Stage*`) é escuro nos dois temas.
+  Títulos e rótulos em **Quicksand** (a fonte do relógio, OFL, em `src/FundoVivo/Fonts` com a licença; recurso
+  `Brand`), corpo em Segoe UI Variable. Mexeu num dos três? Os outros dois acompanham. As paletas ficam
   nos recursos da aplicação; tudo no XAML usa os pincéis como `DynamicResource`, então trocar repinta a janela aberta.
   O que é montado em código (cartões, mapa, painel) é refeito no evento `ThemeManager.Changed`. Padrão: seguir o
   Windows (`AppsUseLightTheme`), acompanhando a troca enquanto a janela está aberta. Pincel novo entra nas duas
