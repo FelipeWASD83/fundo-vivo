@@ -23,6 +23,9 @@ public sealed class LibraryItem
     /// <summary>Scenes only: what the video loses, and how strong the parallax is.</summary>
     public SceneTraits Traits { get; init; }
     public double ParallaxAmount { get; init; }
+    /// <summary>.vivo only: shipped with the app, and whether it plays live (reacts to sound) instead of as a video.</summary>
+    public bool IsExample { get; init; }
+    public bool Realtime { get; init; }
 }
 
 public sealed class LibraryScan
@@ -47,6 +50,7 @@ public static class Library
         if (VideoExtensions.Contains(ext)) return WallpaperType.Video;
         if (ImageExtensions.Contains(ext)) return WallpaperType.Image;
         if (WebExtensions.Contains(ext)) return WallpaperType.Web;
+        if (ext == Packages.Extension) return WallpaperType.Package;
         return null;
     }
 
@@ -61,9 +65,11 @@ public static class Library
                 foreach (string dir in SafeDirs(root)) AddProject(scan, dir);
             }
         }
+        foreach (string file in Packages.Examples()) AddPackage(scan, file, null);
         foreach (var u in config.UserItems)
         {
             if (!System.IO.File.Exists(u.File)) continue;
+            if (u.Type == WallpaperType.Package) { AddPackage(scan, u.File, u); continue; }
             scan.Items.Add(new LibraryItem
             {
                 Id = u.Id, Title = u.Title, Type = u.Type, File = u.File, Folder = Path.GetDirectoryName(u.File),
@@ -114,6 +120,21 @@ public static class Library
             Preview = scene.Preview, FromWallpaperEngine = true, ContentRating = scene.ContentRating,
             Date = Directory.GetLastWriteTime(dir), Tags = tags, Rating = FundoVivo.Core.Tags.Rating(scene.ContentRating),
             Traits = scene.Traits, ParallaxAmount = scene.ParallaxAmount,
+        });
+    }
+
+    /// <summary>A .vivo: the app's examples (user == null) or one the user added, whose tags are the ones they kept.</summary>
+    static void AddPackage(LibraryScan scan, string file, UserItem user)
+    {
+        var info = Packages.Inspect(file);
+        if (info == null) { scan.SkippedOther++; return; }
+        var tags = user == null ? info.Tags : (IEnumerable<string>)(user.Tags ?? new List<string>());
+        scan.Items.Add(new LibraryItem
+        {
+            Id = user?.Id ?? IdFor(file), Title = user?.Title ?? info.Title, Type = WallpaperType.Package, File = file,
+            Folder = Path.GetDirectoryName(file), Preview = info.Preview, Date = user?.Added ?? System.IO.File.GetLastWriteTime(file),
+            Tags = tags.Where(t => !string.IsNullOrWhiteSpace(t)).ToList(), IsExample = user == null, Realtime = info.Realtime,
+            ParallaxAmount = info.Parallax,
         });
     }
 

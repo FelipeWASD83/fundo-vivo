@@ -24,11 +24,25 @@ for ($i = 1; $i -le $Tentativas; $i++) {
     if (Test-Path $saida) { Remove-Item $saida -Recurse -Force }
     $r = Rodar dotnet @('publish', $projeto, '-c', 'Release', '-o', $saida, '-nologo', '-v', 'q', "-p:SourceRevisionId=$carimbo")
     if ($r.codigo -ne 0) { Write-Host $r.saida; throw 'A compilação falhou.' }
-    $p = Start-Process (Join-Path $saida 'FundoVivo.exe') -ArgumentList '--check-load' -PassThru -Wait -WindowStyle Hidden
-    if ($p.ExitCode -eq 0) { Write-Host "Tentativa ${i}: o Windows aceitou."; $passou = $true; break }
-    Write-Host "Tentativa ${i}: o Smart App Control barrou (código $($p.ExitCode)); sorteando outro carimbo."
+    # O Windows pode barrar uma DLL (o --check-load devolve 3) ou o próprio .exe (o Start-Process nem abre).
+    try {
+        $p = Start-Process (Join-Path $saida 'FundoVivo.exe') -ArgumentList '--check-load' -PassThru -Wait -WindowStyle Hidden -ErrorAction Stop
+        $codigo = $p.ExitCode
+    } catch { $codigo = 'exe barrado' }
+    if ($codigo -eq 0) { Write-Host "Tentativa ${i}: o Windows aceitou."; $passou = $true; break }
+    Write-Host "Tentativa ${i}: o Smart App Control barrou ($codigo); sorteando outro carimbo."
 }
 if (-not $passou) { throw "O Windows barrou as $Tentativas tentativas. Veja o log CodeIntegrity no Visualizador de Eventos." }
+
+# Os exemplos do formato .vivo: cada pasta de examples\ vira um zip examples\<nome>.vivo dentro do app.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$exemplos = Join-Path $saida 'examples'
+New-Item -ItemType Directory -Force $exemplos | Out-Null
+Get-ChildItem (Join-Path $raiz 'examples') -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'wallpaper.json') } | ForEach-Object {
+    $vivo = Join-Path $exemplos ($_.Name + '.vivo')
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($_.FullName, $vivo, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+}
+Write-Host "Exemplos .vivo: $((Get-ChildItem $exemplos -Filter *.vivo).Count)"
 
 # Fecha só o Fundo Vivo que roda desta pasta antes de trocar os arquivos.
 $exeApp = Join-Path $app 'FundoVivo.exe'

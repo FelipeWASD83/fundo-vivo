@@ -1,0 +1,38 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Vaga-lumes no crepúsculo",
+  "author": "Fundo Vivo",
+  "tags": ["Natureza", "Floresta", "Noite"],
+  "loop": 20,
+  "background": "#1a1838",
+  "parallax": 0.04,
+  "preview": "preview.jpg",
+  "layers": [
+    { "name": "céu", "type": "gradient", "kind": "linear", "angle": 90,
+      "stops": [[0, "#15142f"], [0.45, "#3d2a58"], [0.78, "#b25a74"], [1, "#f0a06c"]] },
+    { "name": "halo da lua", "type": "shape", "shape": "circle", "anchor": "top-right", "x": -0.34, "y": 0.24,
+      "size": 0.2, "softness": 1, "color": "#ffd9a0", "opacity": 0.35, "blend": "screen", "depth": 0.05,
+      "animate": [{ "property": "opacity", "type": "noise", "amount": 0.08, "period": 10 }] },
+    { "name": "lua", "type": "shape", "shape": "circle", "anchor": "top-right", "x": -0.34, "y": 0.24,
+      "size": 0.1, "softness": 0.08, "color": "#fff0d4", "depth": 0.05 },
+    { "name": "morros", "type": "image", "src": "assets/hills.png", "fit": "none", "size": 0.48, "anchor": "bottom",
+      "depth": 0.15 },
+    { "name": "poeira", "type": "particles", "preset": "dust", "density": 0.7, "size": 0.003, "color": "#ffe0b8",
+      "opacity": 0.45, "depth": 0.3, "seed": 2 },
+    { "name": "floresta ao longe", "type": "image", "src": "assets/forest-far.png", "fit": "none", "size": 0.42,
+      "anchor": "bottom", "depth": 0.45 },
+    { "name": "vaga-lumes ao longe", "type": "particles", "preset": "fireflies", "density": 1.2, "size": 0.003,
+      "color": "#ffe27a", "depth": 0.6, "seed": 4 },
+    { "name": "floresta perto", "type": "image", "src": "assets/forest-near.png", "fit": "none", "size": 0.46,
+      "anchor": "bottom", "depth": 1 },
+    { "name": "vaga-lumes perto", "type": "particles", "preset": "fireflies", "density": 0.5, "size": 0.006,
+      "color": "#fff0a0", "depth": 1, "seed": 9 }
+  ],
+  "effects": [
+    { "type": "rays", "anchor": "top-right", "x": -0.34, "y": 0.24, "threshold": 0.75, "strength": 0.5, "length": 0.45 },
+    { "type": "glow", "threshold": 0.7, "strength": 0.8, "radius": 0.012 },
+    { "type": "grade", "contrast": 1.05, "saturation": 1.05 },
+    { "type": "grain", "amount": 0.03 }
+  ]
+}

@@ -266,7 +266,8 @@ public partial class SettingsWindow : Window
     void RenderLibrary()
     {
         WallpaperType? type = FilterVideo.IsChecked == true ? WallpaperType.Video : FilterWeb.IsChecked == true ? WallpaperType.Web
-            : FilterImage.IsChecked == true ? WallpaperType.Image : FilterScene.IsChecked == true ? WallpaperType.Scene : null;
+            : FilterImage.IsChecked == true ? WallpaperType.Image : FilterScene.IsChecked == true ? WallpaperType.Scene
+            : FilterVivo.IsChecked == true ? WallpaperType.Package : null;
         string q = SearchBox.Text.Trim();
         var compare = CultureInfo.InvariantCulture.CompareInfo;
         var ofType = _scan.Items.Where(i => type == null || i.Type == type).ToList();
@@ -371,7 +372,13 @@ public partial class SettingsWindow : Window
         var text = new StackPanel { Margin = new Thickness(12, 9, 12, 11) };
         string tip = item.Title + (item.Tags.Count > 0 ? "\n" + string.Join(" · ", item.Tags) : "") + (item.Rating != null ? "\nClassificação: " + item.Rating : "");
         text.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = tip });
-        string meta = TypeName(item.Type) + (item.FromWallpaperEngine ? " · Wallpaper Engine" : " · seu arquivo");
+        string meta = TypeName(item.Type) + (item.FromWallpaperEngine ? " · Wallpaper Engine" : item.IsExample ? " · exemplo" : " · seu arquivo");
+        if (item.Type == WallpaperType.Package)
+        {
+            string stamp = Packages.Stamp(item.File);
+            var done = _config.ConvertedScenes.Where(c => c.SceneId == item.Id && c.SourceStamp == stamp && File.Exists(c.Output)).Select(c => $"{c.MonitorWidth}×{c.MonitorHeight}").Distinct().ToList();
+            meta += item.Realtime ? " · ao vivo, reage ao som" : done.Count > 0 ? " · vídeo pronto: " + string.Join(", ", done) : " · vira vídeo ao usar";
+        }
         if (item.Type == WallpaperType.Scene)
         {
             var done = _config.ConvertedScenes.Where(c => c.SceneId == item.Id && File.Exists(c.Output)).Select(c => $"{c.MonitorWidth}×{c.MonitorHeight}").Distinct().ToList();
@@ -409,7 +416,19 @@ public partial class SettingsWindow : Window
                 menu.Items.Add(drop);
             }
         }
-        if (!item.FromWallpaperEngine)
+        if (item.Type == WallpaperType.Package && !item.Realtime)
+        {
+            var again = new MenuItem { Header = "Renderizar de novo para este monitor" };
+            again.Click += (_, _) => RenderPackage(item);
+            menu.Items.Add(again);
+            if (_config.ConvertedScenes.Any(c => c.SceneId == item.Id))
+            {
+                var drop = new MenuItem { Header = "Apagar os vídeos feitos deste wallpaper" };
+                drop.Click += (_, _) => DropSceneConversions(item);
+                menu.Items.Add(drop);
+            }
+        }
+        if (!item.FromWallpaperEngine && !item.IsExample)
         {
             var tags = new MenuItem { Header = "Editar tags" };
             tags.Click += (_, _) => EditTags(item);
@@ -439,7 +458,7 @@ public partial class SettingsWindow : Window
         ReloadLibrary();
     }
 
-    static string TypeName(WallpaperType t) => t switch { WallpaperType.Video => "Vídeo", WallpaperType.Web => "Web", WallpaperType.Scene => "Cena", _ => "Imagem" };
+    static string TypeName(WallpaperType t) => t switch { WallpaperType.Video => "Vídeo", WallpaperType.Web => "Web", WallpaperType.Scene => "Cena", WallpaperType.Package => "Vivo", _ => "Imagem" };
 
     void Assign(LibraryItem item)
     {
@@ -463,15 +482,54 @@ public partial class SettingsWindow : Window
             UpdateSidePanel();
             return;
         }
+        if (item.Type == WallpaperType.Package && !item.Realtime)
+        {
+            // Nothing in it depends on the moment: it plays as the video rendered for this monitor, made first if needed.
+            string stamp = Packages.Stamp(item.File);
+            var done = _config.ConvertedScenes.FirstOrDefault(c => c.SceneId == item.Id && c.MonitorWidth == monitor.Bounds.Width
+                && c.MonitorHeight == monitor.Bounds.Height && c.SourceStamp == stamp && File.Exists(c.Output));
+            if (done == null) { RenderPackage(item); return; }
+            FlushSettings();
+            Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
+            {
+                ItemId = item.Id, Type = WallpaperType.Video, File = done.Output, Title = item.Title, MonitorName = monitor.Label,
+                SceneId = item.Id, ParallaxMargin = done.Margin, Package = item.File,
+            });
+            Notify("reload");
+            RenderLibrary();
+            DrawMonitors();
+            UpdateSidePanel();
+            return;
+        }
         FlushSettings();
+        // A .vivo that reacts to sound plays live: the engine opens its runtime page like a web wallpaper.
+        bool live = item.Type == WallpaperType.Package;
         Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
         {
-            ItemId = item.Id, Type = item.Type, File = item.File, Title = item.Title, MonitorName = monitor.Label,
+            ItemId = item.Id, Type = live ? WallpaperType.Web : item.Type, File = item.File, Title = item.Title, MonitorName = monitor.Label,
+            Package = live ? item.File : null,
         });
         Notify("reload");
         RenderLibrary();
         DrawMonitors();
         UpdateSidePanel();
+    }
+
+    void RenderPackage(LibraryItem item)
+    {
+        var monitor = SelectedMonitor;
+        if (monitor == null) return;
+        if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, "Para transformar o wallpaper em vídeo, o ffmpeg precisa estar no PATH.", AppPaths.AppName); return; }
+        var info = Packages.Inspect(item.File);
+        if (info == null) { MessageBox.Show(this, "Não deu para ler esse arquivo .vivo (veja o registro).", AppPaths.AppName); return; }
+        SceneJobs.Enqueue(new SceneJob
+        {
+            Kind = "package", ItemId = item.Id, PackageFile = item.File, SceneTitle = item.Title, MonitorId = monitor.Id, MonitorName = monitor.Label,
+            Width = monitor.Bounds.Width, Height = monitor.Bounds.Height, Duration = info.Loop, Crossfade = 0,
+            Fps = Math.Min(60, _config.EffectiveFps(monitor.RefreshRate)),
+        });
+        _sceneJobSeen = null;
+        RefreshSceneJob();
     }
 
     void ConvertScene(LibraryItem item)
@@ -529,7 +587,7 @@ public partial class SettingsWindow : Window
         string more = queued > 0 ? $" · mais {queued} na fila" : "";
         if (running)
         {
-            SceneJobText.Text = $"Convertendo «{s.SceneTitle}» para {s.MonitorName}: {s.Message} {s.Progress:P0}{more}";
+            SceneJobText.Text = $"{(s.Kind == "package" ? "Renderizando" : "Convertendo")} «{s.SceneTitle}» para {s.MonitorName}: {s.Message} {s.Progress:P0}{more}";
             SceneJobProgress.Visibility = Visibility.Visible;
             SceneJobProgress.Value = s.Progress;
             SceneJobButton.Content = "Cancelar";
@@ -538,9 +596,9 @@ public partial class SettingsWindow : Window
         {
             SceneJobText.Text = s.State switch
             {
-                "done" => $"«{s.SceneTitle}» convertida e posta em {s.MonitorName}.{more}",
-                "canceled" => $"Conversão de «{s.SceneTitle}» cancelada.{more}",
-                _ => $"A conversão de «{s.SceneTitle}» falhou: {s.Message}{more}",
+                "done" => s.Kind == "package" ? $"«{s.SceneTitle}» virou vídeo e foi para {s.MonitorName}.{more}" : $"«{s.SceneTitle}» convertida e posta em {s.MonitorName}.{more}",
+                "canceled" => $"{(s.Kind == "package" ? "Renderização" : "Conversão")} de «{s.SceneTitle}» cancelada.{more}",
+                _ => $"{(s.Kind == "package" ? "A renderização" : "A conversão")} de «{s.SceneTitle}» falhou: {s.Message}{more}",
             };
             SceneJobProgress.Visibility = Visibility.Collapsed;
             SceneJobButton.Content = "Fechar";
@@ -564,9 +622,9 @@ public partial class SettingsWindow : Window
         string Join(string[] exts) => string.Join(";", exts.Select(x => "*" + x));
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Escolha vídeos, imagens ou páginas HTML",
+            Title = "Escolha vídeos, imagens, páginas HTML ou wallpapers .vivo",
             Multiselect = true,
-            Filter = $"Wallpapers|{Join(Library.VideoExtensions)};{Join(Library.ImageExtensions)};{Join(Library.WebExtensions)}|Vídeo|{Join(Library.VideoExtensions)}|Imagem|{Join(Library.ImageExtensions)}|Página web|{Join(Library.WebExtensions)}",
+            Filter = $"Wallpapers|{Join(Library.VideoExtensions)};{Join(Library.ImageExtensions)};{Join(Library.WebExtensions)};*{Packages.Extension}|Vídeo|{Join(Library.VideoExtensions)}|Imagem|{Join(Library.ImageExtensions)}|Página web|{Join(Library.WebExtensions)}|Fundo Vivo|*{Packages.Extension}",
         };
         if (dialog.ShowDialog(this) != true) return;
         Mutate(c =>
@@ -577,7 +635,14 @@ public partial class SettingsWindow : Window
                 if (type == null) continue;
                 string id = Library.IdFor(f);
                 if (c.UserItems.Any(u => u.Id == id)) continue;
-                c.UserItems.Add(new UserItem { Id = id, File = f, Type = type.Value, Title = Path.GetFileNameWithoutExtension(f), Added = DateTime.Now });
+                // A .vivo brings its own title and tags; from here on the tags are the user's to edit.
+                var info = type == WallpaperType.Package ? Packages.Inspect(f) : null;
+                if (type == WallpaperType.Package && info == null) continue;
+                c.UserItems.Add(new UserItem
+                {
+                    Id = id, File = f, Type = type.Value, Title = info?.Title ?? Path.GetFileNameWithoutExtension(f), Added = DateTime.Now,
+                    Tags = info?.Tags.ToList() ?? new List<string>(),
+                });
             }
         });
         ReloadLibrary();
@@ -616,12 +681,13 @@ public partial class SettingsWindow : Window
             FitStretch.IsChecked = s.Fit == FitMode.Stretch;
             SetLabelVisibility(FitFill, visual);
 
-            SoundSection.Visibility = a.Type == WallpaperType.Image ? Visibility.Collapsed : Visibility.Visible;
+            // a .vivo makes no sound of its own
+            SoundSection.Visibility = a.Type == WallpaperType.Image || a.Package != null ? Visibility.Collapsed : Visibility.Visible;
             VolumeSlider.Value = s.Volume;
             VolumeText.Text = VolumeLabel(s.Volume, a.Type);
 
             PropertiesSection.Visibility = Visibility.Collapsed;
-            if (a.Type == WallpaperType.Web)
+            if (a.Type == WallpaperType.Web && a.Package == null)
             {
                 var project = WeProject.Load(Path.GetDirectoryName(a.File));
                 if (project != null && PropertyEditor.Build(PropertiesPanel, project, s, (key, value) => QueueSettings(a.ItemId, x => x.Properties[key] = value?.DeepClone())) > 0)
@@ -651,7 +717,11 @@ public partial class SettingsWindow : Window
         if (a == null || _selectedMonitor == null) return;
         var (state, _) = StateLabel(_selectedMonitor);
         string source = _scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.FromWallpaperEngine == true ? "Wallpaper Engine" : "seu arquivo";
-        SideDetail.Text = a.SceneId != null
+        SideDetail.Text = a.Package != null
+            ? a.Type == WallpaperType.Web
+                ? $"Vivo ao vivo (reage ao som) · {state}"
+                : $"Vivo renderizado em vídeo · {state}" + (a.ParallaxMargin > 0 ? ". O parallax virou um pan com o mouse: o vídeo inteiro anda junto." : "")
+            : a.SceneId != null
             ? $"Cena convertida · {state}" + (a.ParallaxMargin > 0 ? ". O parallax virou um pan com o mouse: o vídeo inteiro anda junto, sem a profundidade de cada camada." : "")
             : $"{TypeName(a.Type)} · {source} · {state}";
     }

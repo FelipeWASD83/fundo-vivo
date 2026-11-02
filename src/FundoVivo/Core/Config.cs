@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace FundoVivo.Core;
 
-public enum WallpaperType { Video, Image, Web, Scene }
+public enum WallpaperType { Video, Image, Web, Scene, Package }
 public enum FitMode { Fill, Fit, Stretch }
 public enum CoveredAction { Pause, Keep }
 public enum FullscreenAction { Pause, Unload, Keep }
@@ -22,6 +22,8 @@ public sealed class MonitorAssignment
     public string SceneId { get; set; }
     /// <summary>Extra picture on each side, as a fraction of the monitor, that the mouse pans over (the scene's parallax).</summary>
     public double ParallaxMargin { get; set; }
+    /// <summary>Set when this is a .vivo wallpaper: the video rendered from it, or (Type Web) the file played live.</summary>
+    public string Package { get; set; }
 }
 
 /// <summary>Per-wallpaper choices; kept by item so switching away and back keeps them.</summary>
@@ -59,7 +61,7 @@ public sealed class ConvertedVideo
     public long SourceLength { get; set; }
 }
 
-/// <summary>A scene recorded into a video for one monitor size.</summary>
+/// <summary>A scene recorded, or a .vivo rendered, into a video for one monitor size.</summary>
 public sealed class ConvertedScene
 {
     public string SceneId { get; set; }
@@ -74,6 +76,8 @@ public sealed class ConvertedScene
     public int Fps { get; set; }
     public double Duration { get; set; }
     public DateTime Created { get; set; }
+    /// <summary>For a rendered .vivo: the file version it was made from (Packages.Stamp).</summary>
+    public string SourceStamp { get; set; }
 }
 
 public sealed class AppConfig

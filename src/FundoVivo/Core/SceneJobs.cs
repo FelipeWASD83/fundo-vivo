@@ -12,6 +12,7 @@ public sealed class SceneJobStatus
     public double Progress { get; set; }
     public string Message { get; set; }
     public int Queued { get; set; }
+    public string Kind { get; set; }
     public DateTime Updated { get; set; } = DateTime.Now;
 }
 
@@ -121,7 +122,7 @@ public static class SceneJobs
 
     static void Run(SceneJob job)
     {
-        var status = new SceneJobStatus { JobId = job.Id, SceneTitle = job.SceneTitle, MonitorName = job.MonitorName, State = "running", Message = "Começando" };
+        var status = new SceneJobStatus { JobId = job.Id, SceneTitle = job.SceneTitle, MonitorName = job.MonitorName, State = "running", Message = "Começando", Kind = job.Kind };
         SetStatus(status);
         using var cts = new CancellationTokenSource();
         using var watch = new Timer(_ => { if (File.Exists(CancelFile(job.Id))) cts.Cancel(); }, null, 500, 500);
@@ -134,22 +135,31 @@ public static class SceneJobs
         });
         try
         {
-            var result = SceneConverter.ConvertAsync(job, progress, cts.Token).GetAwaiter().GetResult();
-            var scene = SceneProject.Load(job.SceneFolder);
+            bool package = job.Kind == "package";
+            string stamp = package ? Packages.Stamp(job.PackageFile) : null;
+            var result = package
+                ? PackageRenderer.Render(job, progress, cts.Token)
+                : SceneConverter.ConvertAsync(job, progress, cts.Token).GetAwaiter().GetResult();
+            string id = package ? job.ItemId : SceneProject.Load(job.SceneFolder).Id;
+            string title = job.SceneTitle;
             ConfigStore.Mutate(c =>
             {
-                c.ConvertedScenes.RemoveAll(x => x.SceneId == scene.Id && x.MonitorWidth == job.Width && x.MonitorHeight == job.Height);
+                var old = c.ConvertedScenes.Where(x => x.SceneId == id && x.MonitorWidth == job.Width && x.MonitorHeight == job.Height).ToList();
+                c.ConvertedScenes.RemoveAll(old.Contains);
+                // a re-render of a changed .vivo has a new file name; the old video goes
+                foreach (var o in old.Where(o => !string.Equals(o.Output, result.Output, StringComparison.OrdinalIgnoreCase)))
+                    try { File.Delete(o.Output); } catch { }
                 c.ConvertedScenes.Add(new ConvertedScene
                 {
-                    SceneId = scene.Id, SceneFolder = job.SceneFolder, Title = scene.Title, MonitorWidth = job.Width, MonitorHeight = job.Height,
+                    SceneId = id, SceneFolder = package ? job.PackageFile : job.SceneFolder, Title = title, MonitorWidth = job.Width, MonitorHeight = job.Height,
                     Output = result.Output, VideoWidth = result.Width, VideoHeight = result.Height, Margin = result.Margin, Fps = result.Fps,
-                    Duration = job.Duration, Created = DateTime.Now,
+                    Duration = job.Duration, Created = DateTime.Now, SourceStamp = stamp,
                 });
                 if (job.Assign && job.MonitorId != null)
                     c.Monitors[job.MonitorId] = new MonitorAssignment
                     {
-                        ItemId = scene.Id, Type = WallpaperType.Video, File = result.Output, Title = scene.Title, MonitorName = job.MonitorName,
-                        SceneId = scene.Id, ParallaxMargin = result.Margin,
+                        ItemId = id, Type = WallpaperType.Video, File = result.Output, Title = title, MonitorName = job.MonitorName,
+                        SceneId = id, ParallaxMargin = result.Margin, Package = package ? job.PackageFile : null,
                     };
             });
             if (job.Assign && !Engine.EngineHost.Send("{\"cmd\":\"reload\"}"))
@@ -157,7 +167,7 @@ public static class SceneJobs
             status.State = "done";
             status.Progress = 1;
             status.Message = "Pronto";
-            Log.Write($"scene converted: {scene.Title} {job.Width}x{job.Height} -> {result.Output} ({result.Width}x{result.Height}, margin {result.Margin:0.###}, {result.Fps} fps)");
+            Log.Write($"{(package ? "vivo rendered" : "scene converted")}: {title} {job.Width}x{job.Height} -> {result.Output} ({result.Width}x{result.Height}, margin {result.Margin:0.###}, {result.Fps} fps)");
         }
         catch (OperationCanceledException)
         {

@@ -20,6 +20,11 @@ public sealed class SceneJob
     public double Duration { get; set; } = 20;
     public double Crossfade { get; set; } = 1.5;
     public bool Assign { get; set; } = true;
+    /// <summary>"package" for a .vivo rendered frame by frame (PackageRenderer); empty for a Wallpaper Engine scene.</summary>
+    public string Kind { get; set; }
+    public string ItemId { get; set; }
+    public string PackageFile { get; set; }
+    public int Fps { get; set; } = 60;
 }
 
 public sealed class SceneResult
@@ -216,7 +221,7 @@ public static class SceneConverter
     }
 
     /// <summary>H.264 goes up to 4096 wide on NVENC; the ultrawide with a parallax margin needs HEVC (Windows has the decoder).</summary>
-    static string Encoder(int w, int h, bool nvenc, int cq)
+    internal static string Encoder(int w, int h, bool nvenc, int cq)
     {
         bool big = w > 4096 || h > 4096;
         if (nvenc) return $"-c:v {(big ? "hevc_nvenc" : "h264_nvenc")} -preset p5 -tune hq -rc vbr -cq {cq} -b:v 0";
@@ -240,7 +245,7 @@ public static class SceneConverter
         return (p.ExitCode == 0, errors.ToString());
     }
 
-    static int Even(double v) => Math.Max(2, (int)Math.Round(v / 2) * 2);
+    internal static int Even(double v) => Math.Max(2, (int)Math.Round(v / 2) * 2);
     static string F(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
     static string Ensure(string d) { Directory.CreateDirectory(d); return d; }
     static string Hash(string s) => Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(s)))[..10].ToLowerInvariant();

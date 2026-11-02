@@ -1,0 +1,44 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Pulso",
+  "author": "Fundo Vivo",
+  "tags": ["Abstrato", "Música"],
+  "loop": 20,
+  "background": "#05040a",
+  "preview": "preview.jpg",
+  "layers": [
+    { "name": "fundo", "type": "gradient", "kind": "radial", "center": [0.5, 0.5], "radius": 1,
+      "stops": [[0, "#1d1236"], [0.6, "#0a0816"], [1, "#05040a"]] },
+    { "name": "poeira", "type": "particles", "preset": "dust", "density": 1.3, "size": 0.0035, "color": "#b8a8ff",
+      "opacity": 0.6, "seed": 6 },
+    { "name": "linha que gira", "type": "shape", "shape": "rect", "size": 0.95, "height": 0.0025, "color": "#7a5cff",
+      "opacity": 0.35, "softness": 0.02, "blend": "add",
+      "animate": [{ "property": "rotation", "type": "spin", "period": 20 }] },
+    { "name": "linha que gira ao contrário", "type": "shape", "shape": "rect", "size": 0.95, "height": 0.0025,
+      "color": "#3fd0ff", "opacity": 0.3, "rotation": 90, "softness": 0.02, "blend": "add",
+      "animate": [{ "property": "rotation", "type": "spin", "amount": -1, "period": 10 }] },
+    { "name": "anel dos agudos", "type": "shape", "shape": "ring", "size": 0.74, "thickness": 0.002, "color": "#ff5ca8",
+      "opacity": 0.6, "softness": 0.05, "blend": "add",
+      "animate": [{ "property": "scale", "type": "audio", "band": "treble", "amount": 0.3 }] },
+    { "name": "anel dos graves", "type": "shape", "shape": "ring", "size": 0.52, "thickness": 0.004, "color": "#7a5cff",
+      "softness": 0.12, "blend": "add",
+      "animate": [
+        { "property": "scale", "type": "audio", "band": "bass", "amount": 0.45 },
+        { "property": "opacity", "type": "oscillate", "amount": 0.2, "period": 5 }
+      ], "opacity": 0.8 },
+    { "name": "anel dos médios", "type": "shape", "shape": "ring", "size": 0.34, "thickness": 0.003, "color": "#3fd0ff",
+      "softness": 0.15, "blend": "add",
+      "animate": [{ "property": "scale", "type": "audio", "band": "mid", "amount": 0.5 }] },
+    { "name": "núcleo", "type": "shape", "shape": "circle", "size": 0.12, "color": "#ffffff", "softness": 0.7,
+      "opacity": 0.85, "blend": "add",
+      "animate": [
+        { "property": "scale", "type": "audio", "band": "all", "amount": 0.8 },
+        { "property": "scale", "type": "oscillate", "amount": 0.04, "period": 4 }
+      ] }
+  ],
+  "effects": [
+    { "type": "glow", "threshold": 0.35, "strength": 1, "radius": 0.02 },
+    { "type": "grain", "amount": 0.03 }
+  ]
+}

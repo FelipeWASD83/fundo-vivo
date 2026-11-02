@@ -29,6 +29,11 @@ botão direito para pausar tudo ou sair).
 - Os seus arquivos, pelo botão **Adicionar arquivo**: vídeo (mp4, webm, mkv, mov...), imagem (jpg, png, webp...) ou
   página HTML.
 
+Os wallpapers **Vivo** são o formato próprio do app (`.vivo`): camadas, partículas, efeitos e animações descritos num
+arquivo de texto, que se ajustam sozinhos a qualquer proporção de tela. Quatro exemplos vêm junto. O que não reage a
+som vira vídeo em poucos segundos e gasta o que um vídeo gasta; o que reage a som toca ao vivo. Como fazer um:
+[`docs/formato-vivo.md`](docs/formato-vivo.md).
+
 As **cenas** do Wallpaper Engine aparecem com o tipo **Cena**: clicar numa delas converte ela num vídeo em loop para o
 monitor escolhido. Quem desenha é o próprio Wallpaper Engine (precisa estar instalado), numa janela fora da tela; o
 Fundo Vivo grava e emenda o fim com o começo. O que reage a som, mouse ou relógio fica gravado como estava; o parallax

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.0 (02/11/2026)
+
+### Novo
+- Formato próprio de wallpaper, o `.vivo`: um zip com um `wallpaper.json` que descreve camadas (imagem, gradiente, forma e partículas de chuva, neve, poeira e vaga-lumes), efeitos (desfoque, cor, grão, brilho e raios de luz), animações em loop (oscilar, girar, ruído e reagir ao som) e parallax. A documentação completa está em `docs/formato-vivo.md` e o esquema em `schema/vivo.schema.json`.
+- O mesmo wallpaper se ajusta sozinho ao ultrawide, ao monitor em pé e à TV 4K: as medidas são frações do lado menor da tela e cada camada se prende a um canto ou a uma borda.
+- Quatro exemplos já vêm no app, no filtro **Vivo** da Biblioteca: Noite de chuva, Vaga-lumes no crepúsculo, Neve nas montanhas e Pulso.
+- Wallpaper `.vivo` que não reage a som vira vídeo para o monitor escolhido, em poucos segundos e em loop perfeito, e passa a gastar o que um vídeo gasta. Com parallax, o vídeo sai um pouco maior e anda com o mouse.
+- Wallpaper `.vivo` que reage a som toca ao vivo, no limite de fps dos Ajustes, com o parallax de verdade em cada camada.
+- Adicionar arquivo aceita `.vivo`, que entra com o título e as tags que ele traz.
+
+### Mudou
+- A barra de conversão da Biblioteca também mostra a renderização dos `.vivo`.
+
 ## 1.3.0 (02/11/2026)
 
 ### Novo

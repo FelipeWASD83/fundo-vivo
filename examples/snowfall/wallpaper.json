@@ -1,0 +1,32 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Neve nas montanhas",
+  "author": "Fundo Vivo",
+  "tags": ["Neve", "Montanha", "Inverno"],
+  "loop": 20,
+  "background": "#1c2a48",
+  "parallax": 0.03,
+  "preview": "preview.jpg",
+  "layers": [
+    { "name": "céu", "type": "gradient", "kind": "linear", "angle": 90,
+      "stops": [[0, "#18243f"], [0.55, "#4f6890"], [1, "#b4c4da"]] },
+    { "name": "neve ao longe", "type": "particles", "preset": "snow", "density": 0.9, "speed": 0.55, "size": 0.003,
+      "opacity": 0.55, "depth": 0.15, "seed": 2 },
+    { "name": "montanhas ao longe", "type": "image", "src": "assets/mountains-far.png", "fit": "none", "size": 0.72,
+      "anchor": "bottom", "depth": 0.25 },
+    { "name": "neblina", "type": "gradient", "kind": "linear", "angle": 90, "depth": 0.3,
+      "stops": [[0, "#ffffff00"], [0.55, "#ffffff00"], [0.85, "#e4ecf640"], [1, "#e4ecf600"]],
+      "animate": [{ "property": "opacity", "type": "oscillate", "amount": 0.15, "period": 20 }], "opacity": 0.85 },
+    { "name": "neve no meio", "type": "particles", "preset": "snow", "density": 0.6, "speed": 0.8, "size": 0.005,
+      "opacity": 0.75, "depth": 0.5, "seed": 5 },
+    { "name": "montanhas perto", "type": "image", "src": "assets/mountains-near.png", "fit": "none", "size": 0.52,
+      "anchor": "bottom", "depth": 0.65 },
+    { "name": "neve perto", "type": "particles", "preset": "snow", "density": 0.3, "speed": 1.1, "size": 0.009,
+      "opacity": 0.9, "depth": 1, "seed": 8 }
+  ],
+  "effects": [
+    { "type": "grade", "saturation": 0.85, "brightness": 0.02 },
+    { "type": "grain", "amount": 0.025 }
+  ]
+}

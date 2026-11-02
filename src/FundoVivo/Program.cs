@@ -23,6 +23,17 @@ public static class Program
                 Log.Name = "scenes";
                 try { return SceneJobs.RunWorker(); }
                 catch (Exception e) { Log.Write("scene worker crashed: " + e); return 1; }
+            case "--vivo-still":
+                // One frame of a .vivo to a PNG, drawn by the same runtime and renderer that make its video.
+                Log.Name = "scenes";
+                try
+                {
+                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                    PackageRenderer.Still(args[1], args[2], int.Parse(args[3]), int.Parse(args[4]),
+                        args.Length > 5 ? double.Parse(args[5], inv) : 0, args.Length > 6 ? double.Parse(args[6], inv) : 0);
+                    return 0;
+                }
+                catch (Exception e) { Log.Write("vivo still failed: " + e); return 1; }
             case "--screenshot":
                 Log.Name = "settings";
                 return new Settings.SettingsApp(args.Skip(1).ToArray()).Run();

@@ -81,6 +81,7 @@
                             <RadioButton x:Name="FilterVideo" Content="Vídeo" Style="{StaticResource Segment}" GroupName="filter" Checked="Filter_Changed"/>
                             <RadioButton x:Name="FilterWeb" Content="Web" Style="{StaticResource Segment}" GroupName="filter" Checked="Filter_Changed"/>
                             <RadioButton x:Name="FilterImage" Content="Imagem" Style="{StaticResource Segment}" GroupName="filter" Checked="Filter_Changed"/>
+                            <RadioButton x:Name="FilterVivo" Content="Vivo" Style="{StaticResource Segment}" GroupName="filter" Checked="Filter_Changed"/>
                             <RadioButton x:Name="FilterScene" Content="Cena" Style="{StaticResource Segment}" GroupName="filter" Margin="0" Checked="Filter_Changed"/>
                         </StackPanel>
                     </Border>

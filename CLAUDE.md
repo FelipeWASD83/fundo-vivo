@@ -91,14 +91,42 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
     por vez), nunca no motor. Pronta, grava `ConvertedScenes` e, se pedido, o monitor, e manda `reload`.
   - **Testar conversão daqui**: os processos abertos pelo app do Claude enxergam um AppData virtual, e o Wallpaper
     Engine não acharia a cópia desempacotada. Use `FUNDOVIVO_HOME` numa pasta fora do AppData (`build\test-home`).
+- **Formato próprio `.vivo`** (2.0.0; `Core/Packages.cs`, `Core/PackageRenderer.cs`, `Runtime/`, `docs/formato-vivo.md`,
+  `schema/vivo.schema.json`, exemplos em `examples/`):
+  - É dado, não código: zip com `wallpaper.json` e assets. O runtime (`Runtime/index.html` e `vivo.js`, WebGL2) vai
+    embutido no exe e é escrito ao lado do conteúdo desempacotado em `%LOCALAPPDATA%\FundoVivo\packages\<hash>`
+    (um por versão do arquivo e do app; guarda contra caminho `../` no zip).
+  - **O desenho é função pura do tempo** (`draw(t)`): partículas em forma fechada com número inteiro de voltas por
+    loop, períodos arredondados para dividir o loop, `spin` com voltas inteiras. Nunca usar `performance.now` nem estado
+    acumulado no runtime: é isso que deixa a mesma cena tocar ao vivo e ser renderizada quadro a quadro com loop perfeito.
+  - Ao vivo (`mode=live`, padrão): a atribuição é `type: web` com `file` = o `.vivo` e `package` preenchido; o motor
+    chama `Packages.Prepare` e abre como web (shim, fps, pausa, som e mouse de sempre). Só vai ao vivo o que tem animação
+    `audio`.
+  - Renderizado (`mode=render`): job `kind: package` na fila das cenas; `PackageRenderer` abre o runtime numa WebView2
+    própria (perfil `webview-render`, outra janela fora da tela, `CalculateNativeWinOcclusion` desligado), passa um
+    `CoreWebView2SharedBuffer`, pede cada quadro por `{type:'frame', t}` e manda os pixels (RGBA de baixo para cima,
+    `vflip` no ffmpeg) direto para o NVENC. Resultado em `ConvertedScenes` com `SourceStamp` (tamanho + data do
+    arquivo): mudou o `.vivo`, renderiza de novo. A atribuição é `type: video` com `sceneId` e `package`.
+  - Medido em 02/11/2026: 1200 quadros 3646×1526 em 15,6 s. O grão de filme fica **parado no vídeo** (mudando a cada
+    quadro, a neve saía com 61 Mbit/s; parado, 8,6), e o encoder vai com CQ 21 e teto de 30 Mbit/s (a chuva chegava
+    a 60). Ao vivo no ultrawide: 59 a 60 fps.
+  - `FundoVivo.exe --vivo-still <vivo> <png> <w> <h> [t] [margem]` desenha um quadro com o mesmo renderizador: é o
+    jeito de testar as três proporções sem pôr nada na tela dele. Headless Edge tira a foto antes das imagens
+    decodificarem (sai preto); use isso ou o MCP chrome-devtools.
 - **Contrato com a ilha** (módulo `fundo` do projeto `ilha`, desde 02/11/2026): ela lê a biblioteca e escreve no
   `config.json` daqui (`monitors` → `itemId`, `type`, `file`, `title`, `monitorName`, e o comando `reload` na janela
   `FundoVivoEngine`). **Não renomear esses campos nem o comando sem atualizar `ilha\src\Ilha\Modulos\Fundo\FundoVivoBridge.cs`**:
-  ela quebraria calada. Campos novos são seguros (ela preserva o JSON inteiro). Ela não lista cenas.
+  ela quebraria calada. Campos novos são seguros (ela preserva o JSON inteiro). Ela não lista cenas. Por isso o `.vivo`
+  nunca aparece como `type` novo no `monitors`: vai como `web` ou `video`, com o campo novo `package`. Mas a ilha
+  lista os `userItems` e copia o `type` deles: um `.vivo` escolhido por lá chega como `type: package`, que o motor
+  abre pelo caminho web (toca ao vivo, sem virar vídeo). Funciona; não tirar esse caminho do `EngineHost.Load`.
 
 ## 2. Comandos
 
-- Compilar e atualizar `app\`: `powershell -ExecutionPolicy Bypass -File ferramentas\compilar.ps1`
+- Compilar e atualizar `app\`: `powershell -ExecutionPolicy Bypass -File ferramentas\compilar.ps1` (também empacota
+  `examples\*` em `app\examples\*.vivo`; o Smart App Control às vezes barra o próprio `.exe`, e o script sorteia outro
+  carimbo nesse caso também)
+- Refazer as imagens dos exemplos: `python ferramentas\make_example_assets.py`
 - Fechar o motor: `app\FundoVivo.exe --quit`
 - Diagnóstico (escreve no `describe.log`): `app\FundoVivo.exe --describe`
 - Publicar versão (decisão dele): subir `<Version>` e o `CHANGELOG.md`, commit, push, `ferramentas\publicar-versao.ps1`.

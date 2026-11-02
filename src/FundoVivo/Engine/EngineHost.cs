@@ -190,7 +190,8 @@ public sealed class EngineHost : NativeWindow
             {
                 WallpaperType.Video => new VideoWallpaper(_composition, window, s.File, s.Assignment.ParallaxMargin),
                 WallpaperType.Image => new ImageWallpaper(_composition, window, s.File),
-                _ => new WebWallpaper(window, s.File, _config.EffectiveFps(s.Monitor.RefreshRate)),
+                // A .vivo plays live in its runtime page (only the ones that react to sound; the others are rendered to video).
+                _ => new WebWallpaper(window, Packages.IsPackage(s.File) ? Packages.Prepare(s.File) : s.File, _config.EffectiveFps(s.Monitor.RefreshRate)),
             };
             window.Content = content;
             if (content is WebWallpaper web)

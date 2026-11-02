@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 1.3.0)
+# Fundo Vivo: tudo que tem no app (versão 2.0.0)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele
@@ -126,12 +126,32 @@ num vídeo em loop para o monitor escolhido, e quem desenha durante a gravação
   cena é gravada um pouco menor e ampliada (no monitor em pé, ~1% sem parallax e até ~14% com o parallax mais forte).
   O ultrawide com sobra de parallax sai em HEVC, que o Windows toca.
 
+## Wallpapers Vivo (o formato do app)
+
+O `.vivo` é o formato próprio do Fundo Vivo: um arquivo que descreve o wallpaper em camadas (imagem, gradiente, forma,
+partículas de chuva, neve, poeira e vaga-lumes), efeitos (desfoque, cor, grão, brilho, raios de luz), animações em loop
+e parallax. Como fazer um, com todos os campos: [`formato-vivo.md`](formato-vivo.md).
+
+- **Exemplos:** quatro vêm no app (filtro **Vivo**): Noite de chuva, Vaga-lumes no crepúsculo, Neve nas montanhas e
+  Pulso (este reage ao som).
+- **Qualquer tela:** as medidas são frações do lado menor da tela e cada camada se prende a um canto ou a uma borda,
+  então o mesmo arquivo serve no ultrawide, no monitor em pé e na TV 4K.
+- **Clique num Vivo** com um monitor selecionado. Se ele não reage a som, vira **vídeo** para aquele monitor (a barra
+  em cima da Biblioteca mostra; leva uns 5 a 20 s) e vai para a tela, em loop perfeito. Com parallax, o vídeo sai um
+  pouco maior e anda com o mouse, como nas cenas. Se reage a som, toca **ao vivo**, no limite de fps dos Ajustes, com
+  o parallax de verdade em cada camada.
+- **No vídeo, o grão de filme fica parado** (ao vivo ele mexe): grão mexendo em todo pixel deixava o vídeo sete vezes
+  maior.
+- **Mudou o arquivo?** No próximo clique ele vira vídeo de novo. Botão direito: **Renderizar de novo para este monitor**
+  e **Apagar os vídeos feitos deste wallpaper**.
+
 ## O que entra na biblioteca
 
+- **Os exemplos Vivo** que vêm com o app.
 - **Do Wallpaper Engine:** os wallpapers de **vídeo** e **web** que você baixou na Oficina do Steam e os seus projetos
   próprios dele, em todas as bibliotecas do Steam. Lidos direto de lá, sem copiar nada. No seu PC: 71 de vídeo e 23
   web, 94 no total.
-- **Seus arquivos,** pelo botão **Adicionar arquivo**.
+- **Seus arquivos,** pelo botão **Adicionar arquivo**: vídeo, imagem, página HTML ou `.vivo`.
 
 ## Os três tipos de wallpaper
 
@@ -159,6 +179,13 @@ num vídeo em loop para o monitor escolhido, e quem desenha durante a gravação
 | Tirar da memória durante um jogo | 29 MB | 0% |
 | Cena "Pixel Cyberpunk Coffee" no próprio Wallpaper Engine (a mais sobre o que ele já gastava) | +226 MB | +6,2% |
 | A mesma cena convertida, tocando no Fundo Vivo (HEVC 4472×1872, com a sobra do parallax) | 283 MB | 1,9% (decodificador da placa em 13%) |
+| Vivo "Noite de chuva" ao vivo no ultrawide, 60 fps | 537 MB, somando os processos do Edge | 15% (3D da placa em 10%) |
+| O mesmo Vivo virado vídeo (3646×1526, 60 fps, com a sobra do pan) | 251 MB | 3,1% (3D parado, decodificador em 25%) |
+| Vivo "Pulso" ao vivo, reagindo ao som | 478 MB | 13% (3D da placa em 10%) |
+
+No Vivo virado vídeo, a memória cai para menos da metade, a CPU para um quinto e a parte 3D da placa (a que os jogos
+usam) fica parada; quem trabalha é o decodificador de vídeo, que é um pedaço separado da placa. É por isso que o app só
+deixa ao vivo o que reage a som.
 
 Na cena convertida, a CPU cai para um terço, mas a memória fica parecida: o vídeo com a sobra do parallax é bem maior
 que a tela. Cena sem parallax sai do tamanho exato do monitor e gasta como um vídeo comum.

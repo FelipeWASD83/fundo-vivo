@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>FundoVivo</AssemblyName>
     <RootNamespace>FundoVivo</RootNamespace>
-    <Version>1.3.0</Version>
+    <Version>2.0.0</Version>
     <Product>Fundo Vivo</Product>
     <Company>Felipe</Company>
     <ApplicationIcon>..\..\icone\icone.ico</ApplicationIcon>
@@ -28,6 +28,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Engine\web-shim.js" LogicalName="web-shim.js" />
+    <EmbeddedResource Include="Runtime\index.html" LogicalName="runtime/index.html" />
+    <EmbeddedResource Include="Runtime\vivo.js" LogicalName="runtime/vivo.js" />
     <Resource Include="..\..\icone\icone.ico" Link="icone.ico" />
   </ItemGroup>
 </Project>
