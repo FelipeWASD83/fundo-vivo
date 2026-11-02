@@ -1,4 +1,4 @@
-using FundoVivo.Native;
+﻿using FundoVivo.Native;
 
 namespace FundoVivo.Engine;
 
@@ -10,7 +10,7 @@ public enum MonitorCover { None, Covered, Fullscreen }
 /// </summary>
 public static class PauseMonitor
 {
-    const int QUNS_BUSY = 2, QUNS_RUNNING_D3D_FULL_SCREEN = 3, QUNS_PRESENTATION_MODE = 4;
+    const int QUNS_RUNNING_D3D_FULL_SCREEN = 3, QUNS_PRESENTATION_MODE = 4;
 
     static readonly HashSet<string> ShellClasses = new(StringComparer.Ordinal)
     {
@@ -19,11 +19,15 @@ public static class PauseMonitor
         "Xaml_WindowedPopupClass", "SysShadow", "tooltips_class32", "#32768", WallpaperWindow.ClassName,
     };
 
-    /// <summary>True when Windows itself says a D3D game or presentation owns the screen.</summary>
+    /// <summary>
+    /// True when Windows itself says an exclusive-mode D3D game or a presentation owns the screen. QUNS_BUSY is left
+    /// out on purpose: on this PC it is reported with no fullscreen program at all (topmost overlays such as the
+    /// GeForce one seem to trigger it), and borderless games are caught by the window check anyway.
+    /// </summary>
     public static bool ExclusiveFullscreen()
     {
         if (Win32.SHQueryUserNotificationState(out int s) != 0) return false;
-        return s == QUNS_RUNNING_D3D_FULL_SCREEN || s == QUNS_PRESENTATION_MODE || s == QUNS_BUSY;
+        return s == QUNS_RUNNING_D3D_FULL_SCREEN || s == QUNS_PRESENTATION_MODE;
     }
 
     public static Dictionary<string, MonitorCover> Evaluate(IReadOnlyList<MonitorInfo> monitors, uint ownPid)

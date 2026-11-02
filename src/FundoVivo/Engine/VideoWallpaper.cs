@@ -13,10 +13,13 @@ public sealed class VideoWallpaper : IWallpaper
     readonly string _file;
     Windows.UI.Composition.Desktop.DesktopWindowTarget _target;
     MediaPlayer _player;
+    MediaSource _source;
     MediaPlayerSurface _surface;
     SpriteVisual _background, _video;
     CompositionSurfaceBrush _brush;
     bool _paused;
+    uint _videoW, _videoH;
+    FitMode _fit = FitMode.Fill;
 
     public WallpaperType Type => WallpaperType.Video;
 
@@ -44,7 +47,14 @@ public sealed class VideoWallpaper : IWallpaper
         _player.CommandManager.IsEnabled = false;
         _player.AudioCategory = MediaPlayerAudioCategory.Media;
         _player.MediaFailed += (_, e) => Log.Write($"video failed ({e.Error}): {e.ErrorMessage} {_file}");
-        _player.Source = MediaSource.CreateFromUri(new Uri(_file));
+        // Size the surface once the video's own size is known (the event comes on a worker thread).
+        _player.PlaybackSession.NaturalVideoSizeChanged += (s, _) =>
+        {
+            uint w = s.NaturalVideoWidth, h = s.NaturalVideoHeight;
+            _host.Queue.TryEnqueue(() => { _videoW = w; _videoH = h; UpdateSurfaceSize(); });
+        };
+        _source = MediaSource.CreateFromUri(new Uri(_file));
+        _player.Source = _source;
         _player.SetSurfaceSize(new Windows.Foundation.Size(_window.Width, _window.Height));
         _surface = _player.GetSurface(c);
         _brush = c.CreateSurfaceBrush(_surface.CompositionSurface);
@@ -60,6 +70,7 @@ public sealed class VideoWallpaper : IWallpaper
     {
         if (_brush != null)
             _brush.Stretch = s.Fit switch { FitMode.Fit => CompositionStretch.Uniform, FitMode.Stretch => CompositionStretch.Fill, _ => CompositionStretch.UniformToFill };
+        if (_fit != s.Fit) { _fit = s.Fit; UpdateSurfaceSize(); }
         if (_player != null)
         {
             _player.IsMuted = s.Volume <= 0;
@@ -73,7 +84,21 @@ public sealed class VideoWallpaper : IWallpaper
         var size = new Vector2(width, height);
         _background.Size = size;
         _video.Size = size;
-        _player.SetSurfaceSize(new Windows.Foundation.Size(width, height));
+        UpdateSurfaceSize();
+    }
+
+    /// <summary>
+    /// The player letterboxes the video inside its surface, so the surface must have the video's own shape;
+    /// the brush then fills, fits or stretches it. Sized to what the monitor needs, never bigger than the video.
+    /// </summary>
+    void UpdateSurfaceSize()
+    {
+        if (_player == null) return;
+        int w = _window.Width, h = _window.Height;
+        if (_videoW == 0 || _videoH == 0) { _player.SetSurfaceSize(new Windows.Foundation.Size(w, h)); return; }
+        double sx = (double)w / _videoW, sy = (double)h / _videoH;
+        double scale = Math.Min(1.0, _fit == FitMode.Fit ? Math.Min(sx, sy) : Math.Max(sx, sy));
+        _player.SetSurfaceSize(new Windows.Foundation.Size(Math.Max(1, Math.Round(_videoW * scale)), Math.Max(1, Math.Round(_videoH * scale))));
     }
 
     public void SetPaused(bool paused)
@@ -92,6 +117,9 @@ public sealed class VideoWallpaper : IWallpaper
             _player.Dispose();
             _player = null;
         }
+        // The source owns the decoder and its frame pool; without this the memory stays until the GC runs.
+        _source?.Dispose();
+        _source = null;
         _surface?.Dispose();
         _brush?.Dispose();
         _video?.Dispose();

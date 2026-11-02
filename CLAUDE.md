@@ -89,8 +89,22 @@ resto:
 - **Armadilha**: no PowerShell 5.1, `Start-Process -Wait` espera os processos filhos também. A janela abre o motor,
   então `-Wait` nela trava até o motor fechar. Use `-PassThru` e `WaitForExit(ms)`.
 
-## 5. Pendente
+## 5. Testado na área de trabalho de verdade (02/11/2026, com o OK dele)
 
-- Testar pendurado na área de trabalho de verdade (com o OK dele): os dois monitores, a pausa com jogo de verdade, o
-  "Tirar da memória", o mouse num wallpaper interativo e o Explorer reiniciando.
+- Vídeo preenchendo o ultrawide atrás dos ícones e do Relógio Mond, web no monitor em pé.
+- Janela do Claude maximizada no monitor em pé: "pausado: janela na frente" só nele.
+- Janela preta sem borda no ultrawide (como um jogo em tela cheia): os dois pausam e voltam quando ela fecha.
+- "Tirar da memória": o programa inteiro cai de ~480 MB para 29 MB durante a tela cheia e volta sozinho.
+- Clique numa área vazia do ultrawide chega no wallpaper web (`click forwarded` no `engine.log`).
+- Ao fechar, o Wallpaper Engine volta a aparecer e não sobra processo.
+
+Três defeitos que só apareceram assim e foram corrigidos: o `QUNS_BUSY` do Windows aparece sem programa em tela
+cheia nenhum neste PC (fica fora da regra); o vídeo saía com faixas pretas em Preencher (a superfície agora tem o
+formato do vídeo); e a memória do vídeo só voltava quando o GC passava (agora o `MediaSource` é fechado e o motor
+coleta logo depois de tirar um wallpaper).
+
+## 6. Pendente
+
+- **Explorer reiniciando não foi testado**: o Relógio Mond vive pendurado no `Progman` e o `ilha` depende do
+  Explorer, então derrubar o Explorer no PC dele podia quebrar os dois. O código (`TaskbarCreated`) está lá.
 - Repositório no GitHub e primeira release.

@@ -37,10 +37,11 @@ public sealed class EngineHost : NativeWindow
     IntPtr _layer;
     TrayIcon _tray;
     AudioSpectrum _audio;
-    Windows.System.DispatcherQueueTimer _tick, _soon, _rebuildTimer;
+    Windows.System.DispatcherQueueTimer _tick, _soon, _rebuildTimer, _releaseTimer;
     bool _locked, _rawInputOn, _exiting;
     string _lastState;
     POINT _lastMouse;
+    DateTime _lastClickLog;
 
     public EngineHost()
     {
@@ -137,6 +138,7 @@ public sealed class EngineHost : NativeWindow
             {
                 s.Window?.Dispose();
                 _slots.Remove(id);
+                ReleaseMemory();
             }
         }
 
@@ -155,7 +157,7 @@ public sealed class EngineHost : NativeWindow
                 s.Window?.Content?.Apply(_config.SettingsFor(a.ItemId));
                 continue;
             }
-            s?.Window?.Dispose();
+            if (s?.Window != null) { s.Window.Dispose(); ReleaseMemory(); }
             s = new Slot { Monitor = m, Assignment = a, File = file };
             _slots[m.Id] = s;
             Load(s);
@@ -230,6 +232,31 @@ public sealed class EngineHost : NativeWindow
         s.Window?.Dispose();
         s.Window = null;
         s.Unloaded = true;
+        ReleaseMemory();
+    }
+
+    /// <summary>
+    /// The player, its surfaces and the composition objects are WinRT objects whose native memory (decoder buffers,
+    /// hundreds of MB for 4K) is only freed when .NET collects their wrappers. After taking a wallpaper down, collect
+    /// now instead of whenever the GC feels like it, once the compositor has had a moment to drop its references.
+    /// </summary>
+    void ReleaseMemory()
+    {
+        if (_releaseTimer == null)
+        {
+            // Kept in a field: a timer only referenced by a local could be collected before it fires.
+            _releaseTimer = _composition.Queue.CreateTimer();
+            _releaseTimer.Interval = TimeSpan.FromMilliseconds(500);
+            _releaseTimer.IsRepeating = false;
+            _releaseTimer.Tick += (_, _) =>
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+            };
+        }
+        _releaseTimer.Stop();
+        _releaseTimer.Start();
     }
 
     // ---------------------------------------------------------------- pause rules
@@ -365,6 +392,11 @@ public sealed class EngineHost : NativeWindow
         if (Win32.GetAsyncKeyState(0x04) < 0) keys |= 0x10;
         IntPtr input = web.InputWindow;
         Win32.PostMessageW(input, Win32.WM_MOUSEMOVE, (IntPtr)keys, pos);
+        if ((buttons & 0x3F) != 0 && (DateTime.Now - _lastClickLog).TotalSeconds > 5)
+        {
+            _lastClickLog = DateTime.Now;
+            Log.Write($"click forwarded to the web wallpaper on {target.Monitor.Label} at {x},{y}");
+        }
         if ((buttons & 0x1) != 0) Win32.PostMessageW(input, Win32.WM_LBUTTONDOWN, (IntPtr)(keys | 0x1), pos);
         if ((buttons & 0x2) != 0) Win32.PostMessageW(input, Win32.WM_LBUTTONUP, (IntPtr)keys, pos);
         if ((buttons & 0x4) != 0) Win32.PostMessageW(input, Win32.WM_RBUTTONDOWN, (IntPtr)(keys | 0x2), pos);
