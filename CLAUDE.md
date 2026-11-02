@@ -107,4 +107,4 @@ coleta logo depois de tirar um wallpaper).
 
 - **Explorer reiniciando não foi testado**: o Relógio Mond vive pendurado no `Progman` e o `ilha` depende do
   Explorer, então derrubar o Explorer no PC dele podia quebrar os dois. O código (`TaskbarCreated`) está lá.
-- Repositório no GitHub e primeira release.
+- Primeira release (decisão dele): `ferramentas\publicar-versao.ps1`. Repositório público desde 02/11/2026, MIT.
