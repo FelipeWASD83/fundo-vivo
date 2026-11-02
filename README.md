@@ -13,6 +13,8 @@ No painel da direita ficam as opções do monitor escolhido: encaixe (preencher,
 próprias dos wallpapers web e o botão **Converter para este monitor**, que aparece quando o vídeo é maior que a tela.
 **Voltar ao papel de parede do Windows** tira o wallpaper animado daquele monitor.
 
+Em **Ajustes**, **Aparência** escolhe o tema da janela: Seguir o Windows (o padrão), Claro ou Escuro.
+
 Fechar a janela não desliga nada: os wallpapers continuam pelo ícone perto do relógio (clique para abrir a janela,
 botão direito para pausar tudo ou sair).
 

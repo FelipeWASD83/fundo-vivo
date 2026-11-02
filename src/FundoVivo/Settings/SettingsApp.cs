@@ -15,6 +15,9 @@ public sealed class SettingsApp : Application
         _screenshot = screenshot;
         ShutdownMode = ShutdownMode.OnMainWindowClose;
         Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/FundoVivo;component/Settings/Theme.xaml") });
+        // FUNDOVIVO_THEME=light|dark forces one for the screenshot checks; otherwise the saved choice.
+        var forced = Environment.GetEnvironmentVariable("FUNDOVIVO_THEME");
+        ThemeManager.Apply(forced == "dark" ? AppTheme.Dark : forced == "light" ? AppTheme.Light : ConfigStore.Load().Theme);
         DispatcherUnhandledException += (_, e) =>
         {
             Log.Write("ui error: " + e.Exception);

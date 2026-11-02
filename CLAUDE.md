@@ -46,6 +46,13 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
 - **Monitores** (`Core/Monitors.cs`): o id estável é o caminho do monitor do `QueryDisplayConfig`
   (`\\?\DISPLAY#AUS342B#...`), não o `\\.\DISPLAYn`, que muda com a ordem dos cabos.
 
+- **Tema** (`Settings/ThemeManager.cs`): duas paletas (claro e um escuro de carvão quente, nunca preto puro) postas
+  nos recursos da aplicação; tudo no XAML usa os pincéis como `DynamicResource`, então trocar repinta a janela aberta.
+  O que é montado em código (cartões, mapa, painel) é refeito no evento `ThemeManager.Changed`. Padrão: seguir o
+  Windows (`AppsUseLightTheme`), acompanhando a troca enquanto a janela está aberta. Pincel novo entra nas duas
+  paletas e sempre como `DynamicResource`. `FUNDOVIVO_THEME=light|dark` força um nas fotos de teste, e
+  `--screenshot ... theme dark` testa a troca ao vivo.
+
 ## 2. Comandos
 
 - Compilar e atualizar `app\`: `powershell -ExecutionPolicy Bypass -File ferramentas\compilar.ps1`

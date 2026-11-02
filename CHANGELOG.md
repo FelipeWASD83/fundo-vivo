@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 (02/11/2026)
+
+### Novo
+- Tema escuro. Em Ajustes, Aparência: Seguir o Windows (o padrão), Claro ou Escuro. Troca na hora, sem fechar a janela, e a barra de título acompanha.
+
+### Mudou
+- Barras de rolagem, sliders, listas, dicas e o menu do botão direito redesenhados para combinar com os dois temas.
+
 ## 1.0.0 (02/11/2026)
 
 ### Novo

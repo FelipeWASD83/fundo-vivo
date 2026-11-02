@@ -44,6 +44,10 @@ public partial class SettingsWindow : Window
         SearchBox.GotFocus += (_, _) => SearchHint.Visibility = Visibility.Collapsed;
         SearchBox.LostFocus += (_, _) => SearchHint.Visibility = string.IsNullOrEmpty(SearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += (_, _) => Dispatcher.BeginInvoke(ReloadMonitors);
+        SourceInitialized += (_, _) => ThemeManager.SetTitleBar(this);
+        // Elements built in code take their brushes when created, so they are rebuilt with the new palette.
+        ThemeManager.Changed += () => { DrawMonitors(); RenderLibrary(); UpdateSidePanel(); RefreshState(); };
+        ThemeManager.WatchSystem(() => _config.Theme);
     }
 
     // ------------------------------------------------------------------ config and engine
@@ -638,6 +642,9 @@ public partial class SettingsWindow : Window
             WebAudio.IsChecked = _config.WebAudio;
             ScanWe.IsChecked = _config.ScanWallpaperEngine;
             try { StartWithWindows.IsChecked = StartupEntry.Enabled; } catch { }
+            ThemeSystem.IsChecked = _config.Theme == AppTheme.System;
+            ThemeLight.IsChecked = _config.Theme == AppTheme.Light;
+            ThemeDark.IsChecked = _config.Theme == AppTheme.Dark;
             VersionText.Text = $"Versão {AppPaths.Version}" + (AppPaths.IsDevelopmentCopy ? " · cópia de desenvolvimento (atualiza pelo git e pelo compilar.ps1)" : "");
             TokenText.Text = string.IsNullOrEmpty(Secrets.GitHubToken)
                 ? "Token de leitura (fine-grained, só este repositório, Contents: leitura). Fica guardado protegido pelo Windows, fora do app."
@@ -661,6 +668,14 @@ public partial class SettingsWindow : Window
         });
         Notify("settings");
         if (scanBefore != _config.ScanWallpaperEngine) ReloadLibrary();
+    }
+
+    void Theme_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_loading || !IsLoaded) return;
+        var theme = ThemeDark.IsChecked == true ? AppTheme.Dark : ThemeLight.IsChecked == true ? AppTheme.Light : AppTheme.System;
+        Mutate(c => c.Theme = theme);
+        ThemeManager.Apply(theme);
     }
 
     void StartWithWindows_Click(object sender, RoutedEventArgs e)
@@ -717,6 +732,11 @@ public partial class SettingsWindow : Window
     {
         switch (script)
         {
+            case "theme":
+                // argument: light | dark, chosen with the same radio button a click would use.
+                (argument == "dark" ? ThemeDark : ThemeLight).IsChecked = true;
+                Log.Write($"selftest theme {argument}: dark={ThemeManager.IsDark} saved={ConfigStore.Load().Theme}");
+                break;
             case "assign":
                 // argument: part of the item's folder; goes to the first non-primary monitor.
                 _selectedMonitor = (_monitors.FirstOrDefault(m => !m.Primary) ?? _monitors.First()).Id;

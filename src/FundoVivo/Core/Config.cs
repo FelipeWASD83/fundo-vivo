@@ -8,6 +8,7 @@ public enum WallpaperType { Video, Image, Web }
 public enum FitMode { Fill, Fit, Stretch }
 public enum CoveredAction { Pause, Keep }
 public enum FullscreenAction { Pause, Unload, Keep }
+public enum AppTheme { System, Light, Dark }
 
 /// <summary>What is shown on one monitor. Everything the engine needs, so it never scans the library.</summary>
 public sealed class MonitorAssignment
@@ -65,6 +66,7 @@ public sealed class AppConfig
     public bool WebAudio { get; set; } = true;
     public bool PausedByUser { get; set; }
     public bool ScanWallpaperEngine { get; set; } = true;
+    public AppTheme Theme { get; set; } = AppTheme.System;
 
     public ItemSettings SettingsFor(string itemId)
     {
