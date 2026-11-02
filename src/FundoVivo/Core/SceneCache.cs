@@ -41,7 +41,8 @@ public static class SceneCache
 
     public static SceneProject Get(string folder)
     {
-        string stamp = File.Exists(Path.Combine(folder, "scene.pkg")) ? Path.Combine(folder, "scene.pkg") : Path.Combine(folder, "project.json");
+        // the package when there is one (scene.pkg, or gifscene.pkg in the GIF scenes), else the project
+        string stamp = Directory.EnumerateFiles(folder, "*.pkg").FirstOrDefault() ?? Path.Combine(folder, "project.json");
         long size; DateTime modified;
         try { var fi = new FileInfo(stamp); size = fi.Length; modified = fi.LastWriteTimeUtc; } catch { return null; }
         var entries = Entries();

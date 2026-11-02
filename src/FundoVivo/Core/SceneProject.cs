@@ -85,7 +85,7 @@ public sealed class SceneProject
         if (Directory.Exists(target)) Directory.Delete(target, true);
         Directory.CreateDirectory(target);
         string full = Path.GetFullPath(target) + Path.DirectorySeparatorChar;
-        string pkg = Path.Combine(Folder, "scene.pkg");
+        string pkg = PackageOf(Folder, SceneFile);
         if (File.Exists(pkg))
         {
             var table = ReadTable(pkg);
@@ -101,7 +101,7 @@ public sealed class SceneProject
         foreach (string file in Directory.GetFiles(Folder))
         {
             string name = Path.GetFileName(file);
-            if (name.Equals("scene.pkg", StringComparison.OrdinalIgnoreCase)) continue;
+            if (name.Equals(Path.GetFileName(pkg), StringComparison.OrdinalIgnoreCase)) continue;
             string dest = Path.Combine(target, name);
             if (!File.Exists(dest)) File.Copy(file, dest);
         }
@@ -177,10 +177,20 @@ public sealed class SceneProject
         };
     }
 
+    /// <summary>
+    /// The package next to the project: named after the scene file (gifscene.json lives in gifscene.pkg, in the GIF
+    /// scenes made with Wallpaper Engine's template), scene.pkg otherwise.
+    /// </summary>
+    public static string PackageOf(string folder, string sceneFile)
+    {
+        string named = Path.Combine(folder, Path.ChangeExtension(Path.GetFileName(sceneFile ?? "scene.json"), ".pkg"));
+        return File.Exists(named) ? named : Path.Combine(folder, "scene.pkg");
+    }
+
     /// <summary>scene.json and every script, from the package (only those entries) or from the loose folder.</summary>
     static (string scene, string scripts) ReadSceneText(string folder, string sceneFile)
     {
-        string pkg = Path.Combine(folder, "scene.pkg");
+        string pkg = PackageOf(folder, sceneFile);
         var scripts = new StringBuilder();
         if (File.Exists(pkg))
         {

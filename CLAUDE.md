@@ -75,8 +75,10 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   - `scene.pkg` = string `PKGVxxxx`, contagem, tabela (nome, offset, tamanho) e os arquivos. Para classificar só se lê o
     `scene.json` e os `.js` (cache em `scene-cache.json` por tamanho e data do pacote).
   - Classificação: parallax (`general.cameraparallax` e `cameraparallaxamount`), som (`supportsaudioprocessing` ou
-    efeito de áudio no `scene.json`), mouse ou relógio (regex nos scripts). As 12 "cenas de GIF" não têm `scene.json`
-    no pacote: "Sem leitura", mas convertem.
+    efeito de áudio no `scene.json`), mouse ou relógio (regex nos scripts). As 12 "cenas de GIF" (modelo de GIF do
+    Wallpaper Engine) guardam tudo em `gifscene.pkg` com `gifscene.json`: o pacote se acha pelo nome do arquivo de
+    cena do `project.json` (`SceneProject.PackageOf`). Até a 2.1.1 só se procurava `scene.pkg`, elas caíam em
+    "Sem leitura" e a conversão quebrava (o texto antigo daqui dizia que convertiam; não convertiam).
   - Gravação: a cena é desempacotada em `%LOCALAPPDATA%\FundoVivo\scene-work\<job>` com `cameraparallax = false` (o
     parallax nunca vai para o vídeo; o caminho de mouse parado foi descartado porque mexeria no mouse dele), aberta
     com `wallpaper64.exe -control openWallpaper -file ... -playInWindow <título> -width -height`, a janela
@@ -137,6 +139,9 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
 - Fechar o motor: `app\FundoVivo.exe --quit`
 - Diagnóstico (escreve no `describe.log`): `app\FundoVivo.exe --describe`
 - Publicar versão (decisão dele): subir `<Version>` e o `CHANGELOG.md`, commit, push, `ferramentas\publicar-versao.ps1`.
+- Só gerar o pacote, sem GitHub: `ferramentas\publicar-versao.ps1 -SoGerar` compila, empacota em
+  `build\release\fundo-vivo-<versão>.zip` (com `notas.md` e `SHA256.txt`), abre a cópia desempacotada e confere que
+  o Windows deixa ela rodar. É o pacote que o instalador do pack dele usa.
 
 ## 3. Decisões que não se desfazem sem motivo
 

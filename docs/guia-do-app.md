@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 2.1.0)
+# Fundo Vivo: tudo que tem no app (versão 2.1.2)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele
@@ -114,8 +114,8 @@ num vídeo em loop para o monitor escolhido, e quem desenha durante a gravação
   da Biblioteca mostra o progresso e tem **Cancelar**; dá para fechar a janela, a conversão continua sozinha. Pronta,
   a cena vai para o monitor. Uma cena de 20 s leva uns 30 a 40 s.
 - **Tags automáticas** para o filtro: **Converte sem perder nada** (86 das suas), **Parallax vira pan** (40), **Perde
-  reação ao som** (95), **Perde mouse/relógio** (104) e **Sem leitura** (12 cenas de GIF, num formato que não dá para
-  ler; convertem do mesmo jeito). Uma cena pode ter várias.
+  reação ao som** (95), **Perde mouse/relógio** (104) e **Sem leitura** (cena cujo arquivo não deu para ler; as 12 cenas de GIF
+  caíam aqui até a 2.1.2 e agora são lidas e convertem). Uma cena pode ter várias.
 - **Som:** o que estiver tocando no PC durante a gravação fica gravado na animação. Converta com o som parado.
 - **Parallax:** o vídeo sai um pouco maior que a tela (até 15% de cada lado) e anda com o mouse. É uma aproximação: o
   vídeo inteiro anda junto, sem a profundidade de cada camada. Só em **Preencher**.

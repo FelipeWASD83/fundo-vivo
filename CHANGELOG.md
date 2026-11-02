@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.2 (02/11/2026)
+
+### Corrigido
+- As cenas de GIF do Wallpaper Engine (feitas com o modelo de GIF dele, 12 na sua biblioteca) davam erro ao converter, porque o pacote delas tem outro nome. Agora convertem, e deixaram de aparecer como "Sem leitura".
+
 ## 2.1.1 (02/11/2026)
 
 ### Corrigido
