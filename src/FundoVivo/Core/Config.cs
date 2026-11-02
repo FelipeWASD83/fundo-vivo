@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace FundoVivo.Core;
 
-public enum WallpaperType { Video, Image, Web }
+public enum WallpaperType { Video, Image, Web, Scene }
 public enum FitMode { Fill, Fit, Stretch }
 public enum CoveredAction { Pause, Keep }
 public enum FullscreenAction { Pause, Unload, Keep }
@@ -18,6 +18,10 @@ public sealed class MonitorAssignment
     public string File { get; set; }
     public string Title { get; set; }
     public string MonitorName { get; set; }
+    /// <summary>Set when the video is a converted Wallpaper Engine scene.</summary>
+    public string SceneId { get; set; }
+    /// <summary>Extra picture on each side, as a fraction of the monitor, that the mouse pans over (the scene's parallax).</summary>
+    public double ParallaxMargin { get; set; }
 }
 
 /// <summary>Per-wallpaper choices; kept by item so switching away and back keeps them.</summary>
@@ -55,6 +59,23 @@ public sealed class ConvertedVideo
     public long SourceLength { get; set; }
 }
 
+/// <summary>A scene recorded into a video for one monitor size.</summary>
+public sealed class ConvertedScene
+{
+    public string SceneId { get; set; }
+    public string SceneFolder { get; set; }
+    public string Title { get; set; }
+    public int MonitorWidth { get; set; }
+    public int MonitorHeight { get; set; }
+    public string Output { get; set; }
+    public int VideoWidth { get; set; }
+    public int VideoHeight { get; set; }
+    public double Margin { get; set; }
+    public int Fps { get; set; }
+    public double Duration { get; set; }
+    public DateTime Created { get; set; }
+}
+
 public sealed class AppConfig
 {
     public int Version { get; set; } = 1;
@@ -62,6 +83,9 @@ public sealed class AppConfig
     public Dictionary<string, ItemSettings> Items { get; set; } = new();
     public List<UserItem> UserItems { get; set; } = new();
     public List<ConvertedVideo> Converted { get; set; } = new();
+    public List<ConvertedScene> ConvertedScenes { get; set; } = new();
+    public double SceneDuration { get; set; } = 20;
+    public double SceneCrossfade { get; set; } = 1.5;
     public PauseSettings Pause { get; set; } = new();
     public bool WebMouse { get; set; } = true;
     public bool WebAudio { get; set; } = true;
@@ -138,6 +162,15 @@ public static class ConfigStore
             try { File.Copy(AppPaths.ConfigFile, AppPaths.ConfigFile + ".broken", true); } catch { }
             return new AppConfig();
         }
+    }
+
+    /// <summary>Read, change, save: what every writer does, so nobody overwrites another's change.</summary>
+    public static AppConfig Mutate(Action<AppConfig> change)
+    {
+        var fresh = Load();
+        change(fresh);
+        Save(fresh);
+        return fresh;
     }
 
     public static void Save(AppConfig config)

@@ -158,6 +158,8 @@ public static class Win32
     [DllImport("wtsapi32.dll")] public static extern bool WTSRegisterSessionNotification(IntPtr h, uint flags);
     [DllImport("wtsapi32.dll")] public static extern bool WTSUnRegisterSessionNotification(IntPtr h);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr GetModuleHandleW(string name);
+    [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] public static extern bool AdjustWindowRectEx(ref RECT rect, uint style, bool menu, uint exStyle);
 
     public static string ClassName(IntPtr h)
     {

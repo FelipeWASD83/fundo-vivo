@@ -29,8 +29,10 @@ botão direito para pausar tudo ou sair).
 - Os seus arquivos, pelo botão **Adicionar arquivo**: vídeo (mp4, webm, mkv, mov...), imagem (jpg, png, webp...) ou
   página HTML.
 
-Os wallpapers do tipo **cena** do Wallpaper Engine não entram: o formato é próprio dele (texturas, shaders e partículas
-que só o programa dele desenha). Para esses, continue usando o Wallpaper Engine, de preferência num monitor diferente.
+As **cenas** do Wallpaper Engine aparecem com o tipo **Cena**: clicar numa delas converte ela num vídeo em loop para o
+monitor escolhido. Quem desenha é o próprio Wallpaper Engine (precisa estar instalado), numa janela fora da tela; o
+Fundo Vivo grava e emenda o fim com o começo. O que reage a som, mouse ou relógio fica gravado como estava; o parallax
+vira um vídeo um pouco maior que a tela, que anda com o mouse.
 
 ## Por que é leve
 

@@ -20,12 +20,15 @@ public sealed class LibraryItem
     public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
     /// <summary>Livre, Questionável, Adulto, or null when the project does not say.</summary>
     public string Rating { get; init; }
+    /// <summary>Scenes only: what the video loses, and how strong the parallax is.</summary>
+    public SceneTraits Traits { get; init; }
+    public double ParallaxAmount { get; init; }
 }
 
 public sealed class LibraryScan
 {
     public List<LibraryItem> Items { get; } = new();
-    public int SkippedScenes { get; set; }
+    public int Scenes { get; set; }
     public int SkippedOther { get; set; }
     public bool FoundWallpaperEngine { get; set; }
 }
@@ -68,6 +71,7 @@ public static class Library
                 Tags = (u.Tags ?? new List<string>()).Where(t => !string.IsNullOrWhiteSpace(t)).ToList(),
             });
         }
+        SceneCache.Save();
         return scan;
     }
 
@@ -80,7 +84,7 @@ public static class Library
         {
             case "video": type = WallpaperType.Video; break;
             case "web": type = WallpaperType.Web; break;
-            case "scene": scan.SkippedScenes++; return;
+            case "scene": AddScene(scan, dir); return;
             default: scan.SkippedOther++; return;
         }
         string file = Path.Combine(dir, project.File ?? "");
@@ -94,6 +98,22 @@ public static class Library
             Date = Directory.GetLastWriteTime(dir),
             Tags = project.Tags.Select(FundoVivo.Core.Tags.FromWallpaperEngine).Where(t => t != null).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             Rating = FundoVivo.Core.Tags.Rating(project.ContentRating),
+        });
+    }
+
+    static void AddScene(LibraryScan scan, string dir)
+    {
+        var scene = SceneCache.Get(dir);
+        if (scene == null) { scan.SkippedOther++; return; }
+        scan.Scenes++;
+        var tags = scene.Tags.Select(FundoVivo.Core.Tags.FromWallpaperEngine).Where(t => t != null)
+            .Concat(scene.ClassificationTags()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        scan.Items.Add(new LibraryItem
+        {
+            Id = scene.Id, Title = scene.Title, Type = WallpaperType.Scene, File = Path.Combine(dir, "project.json"), Folder = dir,
+            Preview = scene.Preview, FromWallpaperEngine = true, ContentRating = scene.ContentRating,
+            Date = Directory.GetLastWriteTime(dir), Tags = tags, Rating = FundoVivo.Core.Tags.Rating(scene.ContentRating),
+            Traits = scene.Traits, ParallaxAmount = scene.ParallaxAmount,
         });
     }
 

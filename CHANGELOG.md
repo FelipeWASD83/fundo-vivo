@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0 (02/11/2026)
+
+### Novo
+- As cenas do Wallpaper Engine entram na Biblioteca (filtro Cena). Clicar numa cena converte ela num vídeo em loop para o monitor escolhido: o próprio Wallpaper Engine desenha a cena numa janela fora da tela, e o Fundo Vivo grava e emenda o fim com o começo, sem a emenda aparecer.
+- Antes de converter, uma janela mostra o que a cena perde (som, mouse, relógio), a duração do loop (10 a 60 s, padrão 20) e o tempo da emenda (padrão 1,5 s).
+- Cada cena ganha tags automáticas para o filtro: Converte sem perder nada, Parallax vira pan, Perde reação ao som, Perde mouse/relógio e Sem leitura.
+- Cena com parallax vira um vídeo um pouco maior que a tela, que anda com o mouse.
+- A conversão roda à parte, numa fila, e continua mesmo com a janela fechada; a Biblioteca mostra o progresso e dá para cancelar.
+- Botão direito na cena: converter de novo, ou apagar as conversões.
+
 ## 1.2.0 (02/11/2026)
 
 ### Novo

@@ -16,8 +16,8 @@ public static class Desktop
     /// </summary>
     public static IntPtr FindWallpaperLayer()
     {
-        if (AppPaths.TestMode && Environment.GetEnvironmentVariable("FUNDOVIVO_TEST_LAYER") == "offscreen")
-            return (_testLayer ??= new TestLayer()).Handle;
+        if (AppPaths.TestMode && Environment.GetEnvironmentVariable("FUNDOVIVO_TEST_LAYER") is "offscreen" or "beside")
+            return (_testLayer ??= new TestLayer(Environment.GetEnvironmentVariable("FUNDOVIVO_TEST_LAYER") == "beside")).Handle;
         IntPtr progman = Progman;
         if (progman == IntPtr.Zero) return IntPtr.Zero;
         // 0x052C asks Explorer to create the WorkerW; harmless when it already exists.
@@ -49,13 +49,23 @@ public static class Desktop
 
     static TestLayer _testLayer;
 
-    /// <summary>For measurements without touching the real desktop: a stand-in layer far outside every monitor.</summary>
+    /// <summary>
+    /// For measurements without touching the real desktop: a stand-in layer outside every monitor. "offscreen" puts it
+    /// far away (Windows does not even compose it); "beside" puts it just right of the desktop, where it is still
+    /// composed, so Windows.Graphics.Capture can take pictures of it. The child positions match the real desktop's.
+    /// </summary>
     sealed class TestLayer : NativeWindow
     {
-        public TestLayer()
+        public TestLayer(bool beside)
         {
+            int x = -32000, y = -32000, w = 16000, h = 8000;
+            if (beside)
+            {
+                w = Win32.GetSystemMetrics(78); h = Win32.GetSystemMetrics(79);
+                x = Win32.GetSystemMetrics(76) + w + 160; y = Win32.GetSystemMetrics(77);
+            }
             Create("FundoVivoTestLayer", Win32.WS_EX_TOOLWINDOW | Win32.WS_EX_NOACTIVATE, Win32.WS_POPUP | Win32.WS_VISIBLE | Win32.WS_CLIPCHILDREN,
-                -32000, -32000, 16000, 8000, IntPtr.Zero);
+                x, y, w, h, IntPtr.Zero);
         }
     }
 
@@ -73,6 +83,12 @@ public static class Desktop
     /// <summary>Screen rectangle converted to the client coordinates of the layer window.</summary>
     public static RECT ToLayer(IntPtr layer, RECT screen)
     {
+        if (_testLayer != null && layer == _testLayer.Handle)
+        {
+            // The stand-in layer stands for the whole desktop: its top left is the desktop's top left.
+            int vx = Win32.GetSystemMetrics(76), vy = Win32.GetSystemMetrics(77);
+            return new RECT(screen.Left - vx, screen.Top - vy, screen.Right - vx, screen.Bottom - vy);
+        }
         var r = screen;
         Win32.MapWindowPoints(IntPtr.Zero, layer, ref r, 2);
         return r;

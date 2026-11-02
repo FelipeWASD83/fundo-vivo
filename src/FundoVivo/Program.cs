@@ -18,6 +18,11 @@ public static class Program
             case "--engine": return RunEngine();
             case "--settings": return RunSettings();
             case "--quit": return EngineHost.Send("{\"cmd\":\"quit\"}") ? 0 : 1;
+            case "--convert-scenes":
+                // Scene conversions run here, in a process of their own: never inside the engine.
+                Log.Name = "scenes";
+                try { return SceneJobs.RunWorker(); }
+                catch (Exception e) { Log.Write("scene worker crashed: " + e); return 1; }
             case "--screenshot":
                 Log.Name = "settings";
                 return new Settings.SettingsApp(args.Skip(1).ToArray()).Run();

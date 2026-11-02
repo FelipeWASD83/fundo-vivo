@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 1.2.0)
+# Fundo Vivo: tudo que tem no app (versão 1.3.0)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele
@@ -34,7 +34,7 @@ Clique num monitor para escolher onde o próximo wallpaper vai.
 
 ### Biblioteca
 
-- Filtros **Todos**, **Vídeo**, **Web** e **Imagem**, e a busca pelo nome (ignora acento e maiúscula).
+- Filtros **Todos**, **Vídeo**, **Web**, **Imagem** e **Cena**, e a busca pelo nome (ignora acento e maiúscula).
 - **Tags**, embaixo dos filtros de tipo: as do Wallpaper Engine, em português (Anime, Jogo, Natureza, Paisagem...), e
   as suas, cada uma com quantos wallpapers tem. Marcando várias, aparece só o que tem **todas**. Depois vem a
   **Classificação** (Livre, Questionável, Adulto), lida do próprio wallpaper; ali vale **qualquer uma** das marcadas.
@@ -101,6 +101,31 @@ mudou e o botão **Instalar**. O campo de token só é necessário para reposit�
 **Programa:** **Abrir pasta de registros** e **Fechar o Fundo Vivo** (desliga os wallpapers e devolve o papel de
 parede de antes).
 
+## Cenas do Wallpaper Engine
+
+As cenas (224 na sua biblioteca) aparecem com o tipo **Cena**. O Fundo Vivo não desenha cena: ele **converte** a cena
+num vídeo em loop para o monitor escolhido, e quem desenha durante a gravação é o próprio Wallpaper Engine.
+
+- **Clique numa cena** com um monitor selecionado. Se ela já foi convertida para o tamanho daquele monitor, vai direto
+  para ele. Se não, abre a janela de conversão, com o que a cena perde, a **duração do loop** (10 a 60 s, padrão 20) e
+  a **emenda** (quantos segundos do fim se misturam com o começo, padrão 1,5).
+- **Durante a gravação**, a janela do Wallpaper Engine aparece por um instante no canto da tela e vai para fora dela;
+  dá para continuar usando o PC. Não abra jogo em tela cheia até acabar (o Wallpaper Engine pausa). A barra em cima
+  da Biblioteca mostra o progresso e tem **Cancelar**; dá para fechar a janela, a conversão continua sozinha. Pronta,
+  a cena vai para o monitor. Uma cena de 20 s leva uns 30 a 40 s.
+- **Tags automáticas** para o filtro: **Converte sem perder nada** (86 das suas), **Parallax vira pan** (40), **Perde
+  reação ao som** (95), **Perde mouse/relógio** (104) e **Sem leitura** (12 cenas de GIF, num formato que não dá para
+  ler; convertem do mesmo jeito). Uma cena pode ter várias.
+- **Som:** o que estiver tocando no PC durante a gravação fica gravado na animação. Converta com o som parado.
+- **Parallax:** o vídeo sai um pouco maior que a tela (até 15% de cada lado) e anda com o mouse. É uma aproximação: o
+  vídeo inteiro anda junto, sem a profundidade de cada camada. Só em **Preencher**.
+- **Fps:** o vídeo sai no limite de fps do seu Wallpaper Engine (hoje 30). Para cenas a 60, suba o limite nos ajustes
+  dele antes de converter.
+- **Botão direito numa cena:** **Converter de novo para este monitor** e **Apagar as conversões desta cena**.
+- **Limites:** o Windows não deixa a janela passar da altura da área de trabalho, então no monitor em pé e na TV 4K a
+  cena é gravada um pouco menor e ampliada (no monitor em pé, ~1% sem parallax e até ~14% com o parallax mais forte).
+  O ultrawide com sobra de parallax sai em HEVC, que o Windows toca.
+
 ## O que entra na biblioteca
 
 - **Do Wallpaper Engine:** os wallpapers de **vídeo** e **web** que você baixou na Oficina do Steam e os seus projetos
@@ -132,14 +157,18 @@ parede de antes).
 | Imagem | 97 MB | 0,1% |
 | Tudo pausado | igual à de antes de pausar | 0,6%, placa parada |
 | Tirar da memória durante um jogo | 29 MB | 0% |
+| Cena "Pixel Cyberpunk Coffee" no próprio Wallpaper Engine (a mais sobre o que ele já gastava) | +226 MB | +6,2% |
+| A mesma cena convertida, tocando no Fundo Vivo (HEVC 4472×1872, com a sobra do parallax) | 283 MB | 1,9% (decodificador da placa em 13%) |
+
+Na cena convertida, a CPU cai para um terço, mas a memória fica parecida: o vídeo com a sobra do parallax é bem maior
+que a tela. Cena sem parallax sai do tamanho exato do monitor e gasta como um vídeo comum.
 
 Para comparar: o Wallpaper Engine estava gastando uns 390 MB só com um wallpaper web.
 
 ## O que não faz (de propósito ou por limite)
 
-- **Wallpapers de cena do Wallpaper Engine** (224 dos seus) não funcionam. O formato é próprio dele: partículas,
-  scripts, modelos 3D, animação de boneco e dezenas de efeitos que só o programa dele desenha. Para esses, continue
-  usando o Wallpaper Engine.
+- **Cena ao vivo:** o Fundo Vivo não desenha cena do Wallpaper Engine; ele grava a cena em vídeo (veja "Cenas do
+  Wallpaper Engine"). O que reage a som, mouse ou relógio fica parado no que foi gravado.
 - **Nos wallpapers web**, ficam de fora: a música tocando no Windows (título, capa, tempo), as opções de arquivo e
   pasta, o arquivo aleatório de uma pasta e esconder opções conforme outras (todas aparecem sempre).
 - **Os dois juntos no mesmo monitor:** o Fundo Vivo desenha por cima do Wallpaper Engine, mas não fecha o dele. Se os

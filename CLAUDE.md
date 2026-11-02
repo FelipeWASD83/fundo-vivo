@@ -64,6 +64,38 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   quadro. CSS e laços por timer não obedecem (dito na interface). Vídeo toca no fps do arquivo; o painel lê
   `System.Video.FrameRate`. Medido: 60 → 60 quadros/s nos dois monitores; 160 → 161 no de 250 Hz e 145 no de 144 Hz.
 
+- **Cenas convertidas em vídeo** (1.3.0; `Core/SceneProject.cs`, `SceneConverter.cs`, `SceneJobs.cs`, `SceneCache.cs`):
+  - `scene.pkg` = string `PKGVxxxx`, contagem, tabela (nome, offset, tamanho) e os arquivos. Para classificar só se lê o
+    `scene.json` e os `.js` (cache em `scene-cache.json` por tamanho e data do pacote).
+  - Classificação: parallax (`general.cameraparallax` e `cameraparallaxamount`), som (`supportsaudioprocessing` ou
+    efeito de áudio no `scene.json`), mouse ou relógio (regex nos scripts). As 12 "cenas de GIF" não têm `scene.json`
+    no pacote: "Sem leitura", mas convertem.
+  - Gravação: a cena é desempacotada em `%LOCALAPPDATA%\FundoVivo\scene-work\<job>` com `cameraparallax = false` (o
+    parallax nunca vai para o vídeo; o caminho de mouse parado foi descartado porque mexeria no mouse dele), aberta
+    com `wallpaper64.exe -control openWallpaper -file ... -playInWindow <título> -width -height`, a janela
+    (`WPEOverlappedWallpaper`) é **só movida** para a direita da área de trabalho (o Wallpaper Engine ignora
+    `-x/-y`, então ela pisca no canto por um instante; redimensionar faz ele escolher outro tamanho, e em -32000 a
+    altura vira 65535) e gravada pelo `gfxcapture` do ffmpeg (`hwnd`, sem cursor) em NVENC CQ 16.
+  - Limites medidos em 02/11/2026: o Windows não deixa a janela passar da altura da área de trabalho (1895 px úteis
+    aqui), então o monitor em pé e a TV gravam menores e são ampliados; NVENC H.264 vai até 4096 de largura, então o
+    ultrawide com sobra de parallax sai em **HEVC** (o Windows tem o decodificador). O vídeo sai no fps do Wallpaper
+    Engine (o dele está em 30); o Fundo Vivo não mexe nessa configuração.
+  - Loop: grava `duração + emenda` e mistura (`xfade`) os últimos segundos com os primeiros. Medido: a diferença entre
+    o último e o primeiro quadro é igual à de dois quadros seguidos.
+  - Parallax: sobra por lado = intensidade x 0,25 (de 2% a 15%), em `MonitorAssignment.ParallaxMargin`. O motor
+    (`VideoWallpaper.SetPointer`) desloca o vídeo maior conforme o cursor naquele monitor, animado no compositor,
+    no máximo ~30 alvos por segundo, só em Preencher, nunca pausado; o raw input liga só se existir vídeo assim.
+    `FUNDOVIVO_TEST_LAYER=beside` põe a área de trabalho de teste logo à direita da tela (ainda composta), e o
+    comando de teste `{"cmd":"pan","x":..,"y":..}` move o "cursor" sem tocar no mouse: assim o pan foi fotografado.
+  - A conversão roda em `FundoVivo.exe --convert-scenes` (fila em `%LOCALAPPDATA%\FundoVivo\scene-jobs`, um mutex
+    por vez), nunca no motor. Pronta, grava `ConvertedScenes` e, se pedido, o monitor, e manda `reload`.
+  - **Testar conversão daqui**: os processos abertos pelo app do Claude enxergam um AppData virtual, e o Wallpaper
+    Engine não acharia a cópia desempacotada. Use `FUNDOVIVO_HOME` numa pasta fora do AppData (`build\test-home`).
+- **Contrato com a ilha** (módulo `fundo` do projeto `ilha`, desde 02/11/2026): ela lê a biblioteca e escreve no
+  `config.json` daqui (`monitors` → `itemId`, `type`, `file`, `title`, `monitorName`, e o comando `reload` na janela
+  `FundoVivoEngine`). **Não renomear esses campos nem o comando sem atualizar `ilha\src\Ilha\Modulos\Fundo\FundoVivoBridge.cs`**:
+  ela quebraria calada. Campos novos são seguros (ela preserva o JSON inteiro). Ela não lista cenas.
+
 ## 2. Comandos
 
 - Compilar e atualizar `app\`: `powershell -ExecutionPolicy Bypass -File ferramentas\compilar.ps1`
@@ -82,8 +114,8 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   (`Core/Updater.cs`) exige o SHA-256 que o GitHub informa no asset, troca a pasta por um script PowerShell fora do
   app e volta para a anterior se a nova não gravar `started.txt` em 25 s. Na cópia de desenvolvimento (tem `.git` do
   lado de `app\`) ele recusa e manda usar git e `compilar.ps1`, como o Clave.
-- **Cena do Wallpaper Engine fica de fora**: formato proprietário (`scene.pkg`, texturas `.tex`, shaders próprios).
-  Não prometer suporte.
+- **Cena do Wallpaper Engine não é desenhada pelo Fundo Vivo**: formato proprietário (`scene.pkg`, texturas `.tex`,
+  shaders próprios). Ela entra só convertida em vídeo pelo próprio Wallpaper Engine (1.3.0). Não prometer mais que isso.
 - **Configuração sempre relida antes de gravar** (`SettingsWindow.Mutate`): o motor grava o "pausar tudo" do ícone da
   bandeja no mesmo arquivo.
 - **Conversão** (`Core/VideoConverter.cs`): ffmpeg do PATH, `h264_nvenc` e, se falhar, `libx264`; a cópia vai para

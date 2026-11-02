@@ -190,6 +190,7 @@ public partial class SettingsWindow : Window
 
     void RefreshState()
     {
+        try { RefreshSceneJob(); } catch (Exception e) { Log.Write("scene job status: " + e.Message); }
         JsonObject state = null;
         try
         {
@@ -248,7 +249,7 @@ public partial class SettingsWindow : Window
     {
         _scan = Library.Scan(_config);
         string info = $"{_scan.Items.Count} wallpapers";
-        if (_scan.SkippedScenes > 0) info += $" · {_scan.SkippedScenes} do tipo cena ficam só no Wallpaper Engine (formato próprio dele)";
+        if (_scan.Scenes > 0) info += $" · {_scan.Scenes} são cenas do Wallpaper Engine, que viram vídeo quando você converte para um monitor";
         if (_config.ScanWallpaperEngine && !_scan.FoundWallpaperEngine) info += " · Wallpaper Engine não encontrado neste PC";
         LibraryInfo.Text = info;
         WeInfo.Text = _scan.FoundWallpaperEngine
@@ -265,7 +266,7 @@ public partial class SettingsWindow : Window
     void RenderLibrary()
     {
         WallpaperType? type = FilterVideo.IsChecked == true ? WallpaperType.Video : FilterWeb.IsChecked == true ? WallpaperType.Web
-            : FilterImage.IsChecked == true ? WallpaperType.Image : null;
+            : FilterImage.IsChecked == true ? WallpaperType.Image : FilterScene.IsChecked == true ? WallpaperType.Scene : null;
         string q = SearchBox.Text.Trim();
         var compare = CultureInfo.InvariantCulture.CompareInfo;
         var ofType = _scan.Items.Where(i => type == null || i.Type == type).ToList();
@@ -371,6 +372,11 @@ public partial class SettingsWindow : Window
         string tip = item.Title + (item.Tags.Count > 0 ? "\n" + string.Join(" · ", item.Tags) : "") + (item.Rating != null ? "\nClassificação: " + item.Rating : "");
         text.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = tip });
         string meta = TypeName(item.Type) + (item.FromWallpaperEngine ? " · Wallpaper Engine" : " · seu arquivo");
+        if (item.Type == WallpaperType.Scene)
+        {
+            var done = _config.ConvertedScenes.Where(c => c.SceneId == item.Id && File.Exists(c.Output)).Select(c => $"{c.MonitorWidth}×{c.MonitorHeight}").Distinct().ToList();
+            meta += done.Count > 0 ? " · convertida: " + string.Join(", ", done) : " · converter para usar";
+        }
         text.Children.Add(new TextBlock { Text = meta, FontSize = 11.5, Foreground = (Brush)FindResource("Ink3"), Margin = new Thickness(0, 2, 0, 0) });
         if (onMonitors.Count > 0)
             text.Children.Add(new TextBlock { Text = "Em: " + string.Join(", ", onMonitors), FontSize = 11.5, Foreground = (Brush)FindResource("Ink2"), Margin = new Thickness(0, 3, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
@@ -391,6 +397,18 @@ public partial class SettingsWindow : Window
         var open = new MenuItem { Header = "Abrir a pasta" };
         open.Click += (_, _) => Process.Start("explorer.exe", $"/select,\"{item.File}\"");
         menu.Items.Add(open);
+        if (item.Type == WallpaperType.Scene)
+        {
+            var again = new MenuItem { Header = "Converter de novo para este monitor" };
+            again.Click += (_, _) => ConvertScene(item);
+            menu.Items.Add(again);
+            if (_config.ConvertedScenes.Any(c => c.SceneId == item.Id))
+            {
+                var drop = new MenuItem { Header = "Apagar as conversões desta cena" };
+                drop.Click += (_, _) => DropSceneConversions(item);
+                menu.Items.Add(drop);
+            }
+        }
         if (!item.FromWallpaperEngine)
         {
             var tags = new MenuItem { Header = "Editar tags" };
@@ -421,12 +439,30 @@ public partial class SettingsWindow : Window
         ReloadLibrary();
     }
 
-    static string TypeName(WallpaperType t) => t switch { WallpaperType.Video => "Vídeo", WallpaperType.Web => "Web", _ => "Imagem" };
+    static string TypeName(WallpaperType t) => t switch { WallpaperType.Video => "Vídeo", WallpaperType.Web => "Web", WallpaperType.Scene => "Cena", _ => "Imagem" };
 
     void Assign(LibraryItem item)
     {
         var monitor = SelectedMonitor;
         if (monitor == null) return;
+        if (item.Type == WallpaperType.Scene)
+        {
+            // A scene plays as the video recorded for this monitor's size; without one, it is converted first.
+            var done = _config.ConvertedScenes.FirstOrDefault(c => c.SceneId == item.Id && c.MonitorWidth == monitor.Bounds.Width
+                && c.MonitorHeight == monitor.Bounds.Height && File.Exists(c.Output));
+            if (done == null) { ConvertScene(item); return; }
+            FlushSettings();
+            Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
+            {
+                ItemId = item.Id, Type = WallpaperType.Video, File = done.Output, Title = item.Title, MonitorName = monitor.Label,
+                SceneId = item.Id, ParallaxMargin = done.Margin,
+            });
+            Notify("reload");
+            RenderLibrary();
+            DrawMonitors();
+            UpdateSidePanel();
+            return;
+        }
         FlushSettings();
         Mutate(c => c.Monitors[monitor.Id] = new MonitorAssignment
         {
@@ -436,6 +472,91 @@ public partial class SettingsWindow : Window
         RenderLibrary();
         DrawMonitors();
         UpdateSidePanel();
+    }
+
+    void ConvertScene(LibraryItem item)
+    {
+        var monitor = SelectedMonitor;
+        if (monitor == null) return;
+        if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, "Para converter cenas, o ffmpeg precisa estar no PATH.", AppPaths.AppName); return; }
+        string we = SceneConverter.FindWallpaperEngine();
+        if (we == null) { MessageBox.Show(this, "O Wallpaper Engine não foi encontrado: é ele que desenha a cena para a gravação.", AppPaths.AppName); return; }
+        var dialog = new SceneDialog(this, item, monitor, _config.SceneDuration, _config.SceneCrossfade, SceneConverter.WallpaperEngineFps(we));
+        if (dialog.ShowDialog() != true) return;
+        double duration = dialog.Duration, crossfade = dialog.Crossfade;
+        Mutate(c => { c.SceneDuration = duration; c.SceneCrossfade = crossfade; });
+        SceneJobs.Enqueue(new SceneJob
+        {
+            SceneFolder = item.Folder, SceneTitle = item.Title, MonitorId = monitor.Id, MonitorName = monitor.Label,
+            Width = monitor.Bounds.Width, Height = monitor.Bounds.Height, Duration = duration, Crossfade = crossfade,
+        });
+        _sceneJobSeen = null;
+        RefreshSceneJob();
+    }
+
+    void DropSceneConversions(LibraryItem item)
+    {
+        var files = _config.ConvertedScenes.Where(c => c.SceneId == item.Id).Select(c => c.Output).ToList();
+        Mutate(c =>
+        {
+            c.ConvertedScenes.RemoveAll(x => x.SceneId == item.Id);
+            foreach (var id in c.Monitors.Where(kv => kv.Value?.SceneId == item.Id).Select(kv => kv.Key).ToList()) c.Monitors.Remove(id);
+        });
+        Notify("reload");
+        // Deleted after the engine let go of them.
+        Dispatcher.BeginInvoke(async () =>
+        {
+            await Task.Delay(1500);
+            foreach (var f in files) { try { File.Delete(f); } catch (Exception e) { Log.Write("delete converted scene: " + e.Message); } }
+        });
+        ReloadLibrary();
+    }
+
+    string _sceneJobSeen;
+    SceneJobStatus _sceneJob;
+
+    /// <summary>Shows the conversion that is running (or how the last one ended), from the worker's status file.</summary>
+    void RefreshSceneJob()
+    {
+        var s = SceneJobs.Status();
+        int queued = SceneJobs.Pending().Count;
+        bool running = s != null && s.State == "running" && SceneJobs.WorkerRunning;
+        bool recent = s != null && s.State is "done" or "error" or "canceled" && (DateTime.Now - s.Updated).TotalMinutes < 10 && s.JobId != _sceneJobSeen;
+        if (s?.State == "done" && _sceneJob?.State == "running" && _sceneJob.JobId == s.JobId) { _config = ConfigStore.Load(); ReloadLibrary(); }
+        _sceneJob = s;
+        if (!running && !recent && queued == 0) { SceneJobBar.Visibility = Visibility.Collapsed; return; }
+        SceneJobBar.Visibility = Visibility.Visible;
+        string more = queued > 0 ? $" · mais {queued} na fila" : "";
+        if (running)
+        {
+            SceneJobText.Text = $"Convertendo «{s.SceneTitle}» para {s.MonitorName}: {s.Message} {s.Progress:P0}{more}";
+            SceneJobProgress.Visibility = Visibility.Visible;
+            SceneJobProgress.Value = s.Progress;
+            SceneJobButton.Content = "Cancelar";
+        }
+        else if (recent)
+        {
+            SceneJobText.Text = s.State switch
+            {
+                "done" => $"«{s.SceneTitle}» convertida e posta em {s.MonitorName}.{more}",
+                "canceled" => $"Conversão de «{s.SceneTitle}» cancelada.{more}",
+                _ => $"A conversão de «{s.SceneTitle}» falhou: {s.Message}{more}",
+            };
+            SceneJobProgress.Visibility = Visibility.Collapsed;
+            SceneJobButton.Content = "Fechar";
+        }
+        else
+        {
+            SceneJobText.Text = $"Esperando para converter{more}";
+            SceneJobProgress.Visibility = Visibility.Collapsed;
+            SceneJobButton.Content = "Fechar";
+        }
+    }
+
+    void SceneJob_Click(object sender, RoutedEventArgs e)
+    {
+        if (_sceneJob != null && _sceneJob.State == "running") SceneJobs.Cancel(_sceneJob.JobId);
+        else { _sceneJobSeen = _sceneJob?.JobId; SceneJobBar.Visibility = Visibility.Collapsed; }
     }
 
     void AddFile_Click(object sender, RoutedEventArgs e)
@@ -530,7 +651,9 @@ public partial class SettingsWindow : Window
         if (a == null || _selectedMonitor == null) return;
         var (state, _) = StateLabel(_selectedMonitor);
         string source = _scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.FromWallpaperEngine == true ? "Wallpaper Engine" : "seu arquivo";
-        SideDetail.Text = $"{TypeName(a.Type)} · {source} · {state}";
+        SideDetail.Text = a.SceneId != null
+            ? $"Cena convertida · {state}" + (a.ParallaxMargin > 0 ? ". O parallax virou um pan com o mouse: o vídeo inteiro anda junto, sem a profundidade de cada camada." : "")
+            : $"{TypeName(a.Type)} · {source} · {state}";
     }
 
     static string VolumeLabel(int v, WallpaperType t) => v <= 0 ? "Mudo" : t == WallpaperType.Web ? "Ligado" : $"{v}%";
@@ -615,7 +738,8 @@ public partial class SettingsWindow : Window
 
     async Task UpdateOptimizeAsync(MonitorInfo m, MonitorAssignment a)
     {
-        if (m == null || a == null || a.Type != WallpaperType.Video)
+        // A converted scene is already made for this monitor (with the parallax margin on purpose).
+        if (m == null || a == null || a.Type != WallpaperType.Video || a.SceneId != null)
         {
             if (_convert == null) OptimizeSection.Visibility = Visibility.Collapsed;
             return;
@@ -912,6 +1036,13 @@ public partial class SettingsWindow : Window
                 editor.Close();
                 break;
             }
+            case "scenes":
+                // Shows the scene filter, with one classification tag checked when given (e.g. "Parallax vira pan").
+                FilterScene.IsChecked = true;
+                if (argument != "-") _tagFilter.Add(Tags.Key(argument));
+                RenderLibrary();
+                Log.Write($"selftest scenes: {LibraryList.Items.OfType<Border>().Count()} cards");
+                break;
             case "theme":
                 // argument: light | dark, chosen with the same radio button a click would use.
                 (argument == "dark" ? ThemeDark : ThemeLight).IsChecked = true;

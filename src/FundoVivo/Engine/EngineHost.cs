@@ -178,11 +178,17 @@ public sealed class EngineHost : NativeWindow
         }
         try
         {
+            if (s.Assignment.Type == WallpaperType.Scene)
+            {
+                // A scene only plays after it is converted into a video; the window never assigns one directly.
+                Fail(s, null, "error", "a scene was assigned without being converted: " + s.File, 3600);
+                return;
+            }
             var window = new WallpaperWindow(_layer, s.Monitor);
             s.Window = window;
             IWallpaper content = s.Assignment.Type switch
             {
-                WallpaperType.Video => new VideoWallpaper(_composition, window, s.File),
+                WallpaperType.Video => new VideoWallpaper(_composition, window, s.File, s.Assignment.ParallaxMargin),
                 WallpaperType.Image => new ImageWallpaper(_composition, window, s.File),
                 _ => new WebWallpaper(window, s.File, _config.EffectiveFps(s.Monitor.RefreshRate)),
             };
@@ -356,7 +362,9 @@ public sealed class EngineHost : NativeWindow
 
     void UpdateRawInput()
     {
-        bool wanted = _config.WebMouse && _slots.Values.Any(s => s.Assignment.Type == WallpaperType.Web);
+        // Raw mouse input is on only while something uses it: interactive web wallpapers or a scene's parallax pan.
+        bool wanted = (_config.WebMouse && _slots.Values.Any(s => s.Assignment.Type == WallpaperType.Web))
+            || _slots.Values.Any(s => s.Assignment.ParallaxMargin > 0);
         if (wanted == _rawInputOn) return;
         const uint RIDEV_INPUTSINK = 0x100, RIDEV_REMOVE = 0x1;
         var dev = new[] { new RAWINPUTDEVICE { usUsagePage = 1, usUsage = 2, dwFlags = wanted ? RIDEV_INPUTSINK : RIDEV_REMOVE, hwndTarget = wanted ? Handle : IntPtr.Zero } };
@@ -379,6 +387,7 @@ public sealed class EngineHost : NativeWindow
         ushort buttons = mouse.usButtonFlags;
         if (buttons == 0 && pt.X == _lastMouse.X && pt.Y == _lastMouse.Y) return;
         _lastMouse = pt;
+        Pan(pt);
 
         var target = _slots.Values.FirstOrDefault(s => !s.Paused && s.Window?.Content is WebWallpaper && s.Monitor.Bounds.Contains(pt.X, pt.Y));
         if (target?.Window?.Content is not WebWallpaper web || web.InputWindow == IntPtr.Zero) return;
@@ -404,6 +413,47 @@ public sealed class EngineHost : NativeWindow
         if ((buttons & 0x10) != 0) Win32.PostMessageW(input, Win32.WM_MBUTTONDOWN, (IntPtr)(keys | 0x10), pos);
         if ((buttons & 0x20) != 0) Win32.PostMessageW(input, Win32.WM_MBUTTONUP, (IntPtr)keys, pos);
     }
+
+    /// <summary>Moves the converted scenes with parallax toward the cursor; a last pass shortly after the mouse stops.</summary>
+    void Pan(POINT pt)
+    {
+        bool any = false;
+        foreach (var s in _slots.Values)
+        {
+            if (s.Paused || s.Window?.Content is not VideoWallpaper v || !v.Pans) continue;
+            any = true;
+            var b = s.Monitor.Bounds;
+            var n = b.Contains(pt.X, pt.Y)
+                ? new System.Numerics.Vector2((pt.X - (b.Left + b.Width / 2f)) / (b.Width / 2f), (pt.Y - (b.Top + b.Height / 2f)) / (b.Height / 2f))
+                : System.Numerics.Vector2.Zero;
+            v.SetPointer(n);
+        }
+        if (!any) return;
+        if (_panTimer == null)
+        {
+            _panTimer = _composition.Queue.CreateTimer();
+            _panTimer.Interval = TimeSpan.FromMilliseconds(60);
+            _panTimer.IsRepeating = false;
+            _panTimer.Tick += (_, _) => Safe(() => { Win32.GetCursorPos(out var p); PanSettle(p); });
+        }
+        _panTimer.Stop();
+        _panTimer.Start();
+    }
+
+    void PanSettle(POINT pt)
+    {
+        foreach (var s in _slots.Values)
+        {
+            if (s.Paused || s.Window?.Content is not VideoWallpaper v || !v.Pans) continue;
+            var b = s.Monitor.Bounds;
+            var n = b.Contains(pt.X, pt.Y)
+                ? new System.Numerics.Vector2((pt.X - (b.Left + b.Width / 2f)) / (b.Width / 2f), (pt.Y - (b.Top + b.Height / 2f)) / (b.Height / 2f))
+                : System.Numerics.Vector2.Zero;
+            v.SetPointer(n, force: true);
+        }
+    }
+
+    Windows.System.DispatcherQueueTimer _panTimer;
 
     // ---------------------------------------------------------------- window messages
 
@@ -469,6 +519,10 @@ public sealed class EngineHost : NativeWindow
                     break;
                 case "quit":
                     Exit();
+                    break;
+                case "pan" when AppPaths.TestMode:
+                    // Self-test only: a cursor position without touching the real mouse.
+                    PanSettle(new POINT { X = node["x"]!.GetValue<int>(), Y = node["y"]!.GetValue<int>() });
                     break;
             }
         }
