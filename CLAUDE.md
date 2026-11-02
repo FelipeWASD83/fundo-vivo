@@ -197,4 +197,7 @@ coleta logo depois de tirar um wallpaper).
 
 - **Explorer reiniciando não foi testado**: o Relógio Mond vive pendurado no `Progman` e o `ilha` depende do
   Explorer, então derrubar o Explorer no PC dele podia quebrar os dois. O código (`TaskbarCreated`) está lá.
-- Primeira release (decisão dele): `ferramentas\publicar-versao.ps1`. Repositório público desde 02/11/2026, MIT.
+- Primeira release publicada em 02/11/2026, com o OK dele: **v2.1.2**. Foi publicado o zip que saiu do `-SoGerar` e foi
+  testado desempacotado (o `gh release create` à mão, com as `notas.md` dele), não uma compilação nova: cada
+  compilação leva outro carimbo, então o arquivo publicado tem que ser o conferido. O GitHub informa o SHA-256 do
+  asset (`digest`), que é o que o atualizador exige. Repositório público desde 02/11/2026, MIT.
