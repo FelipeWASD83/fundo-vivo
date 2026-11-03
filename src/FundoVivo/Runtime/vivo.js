@@ -705,8 +705,9 @@
       });
       if (wantsSound(l)) realtime = true;
       if (l.type === 'text' && num(l.reveal, 0) > 0) l._reveal = snapPeriod(l.reveal, `camada ${l.name || i + 1}, digitação`);
+      if (l.colorBy === 'draw') l._colorPeriod = snapPeriod(num(l.colorPeriod, 8.5), `camada ${l.name || i + 1}, cores`);
     });
-    if (W.effects.some((e) => e.band != null)) realtime = true;
+    if (W.effects.some((e) => e.band != null || e.type === 'shake')) realtime = true;
     const sources = new Set();
     for (const l of W.layers) {
       if (l.type !== 'image') continue;
@@ -738,8 +739,9 @@
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
   }
 
-  // Property values of a layer at loop time tl (seconds). Any numeric property of the layer can be animated
-  // (amplitude of a wave, length of the tendrils...), not only x, y, scale, rotation and opacity.
+  // Property values of a layer at loop time tl (seconds). Any continuous number of the layer can be animated
+  // (amplitude of a wave, length of the tendrils...), not only x, y, scale, rotation and opacity, as long as the drawing
+  // reads it through prop(). Counts, seeds, periods and the text size are read once (docs/formato-vivo.md lists them).
   function animated(l, tl) {
     const v = { x: num(l.x, 0), y: num(l.y, 0), scale: num(l.scale, 1), rotation: num(l.rotation, 0), opacity: num(l.opacity, 1) };
     for (const a of l.animate) {
@@ -878,7 +880,7 @@
   function drawCube(l, v, cx, cy, S, tl) {
     const n = clamp(Math.round(num(l.cells, 4)), 1, 8);
     const unit = prop(v, l, 'size', 0.4) * S * v.scale / n / 1.41;
-    const gap = clamp(num(l.gap, 0.06), 0, 0.4);
+    const gap = clamp(prop(v, l, 'gap', 0.06), 0, 0.4);
     const top = color(l.top || '#f4b6d8'), left = color(l.left || '#c77dd6'), right = color(l.right || '#e895c0');
     const push = num(l.audio?.amount, 0);
     const yaw = prop(v, l, 'yaw', 45) * Math.PI / 180, pitch = prop(v, l, 'pitch', 35.264) * Math.PI / 180;
@@ -891,7 +893,7 @@
       return [x1 * cr - y2 * sr, x1 * sr + y2 * cr, z2];
     };
     // perspective: a camera `perspective` cube-widths away (0 = flat, orthographic)
-    const camD = num(l.perspective, 0) * n;
+    const camD = prop(v, l, 'perspective', 0) * n;
     const project = (p) => {
       const q = turn(...p);
       const f = camD > 0 ? camD / Math.max(0.1, camD - q[2]) : 1;
@@ -899,7 +901,7 @@
     };
     // the light's direction as seen from the camera (x right, y up, z towards the viewer)
     const light = (() => { const L = Array.isArray(l.light) && l.light.length === 3 ? l.light.map((c) => num(c, 0)) : [-0.35, 0.75, 0.6], m = Math.hypot(...L) || 1; return L.map((c) => c / m); })();
-    const coreDim = clamp(num(l.coreShade, 0.6), 0, 1);
+    const coreDim = clamp(prop(v, l, 'coreShade', 0.6), 0, 1);
     const lit = (c, nrm) => shade(c, 0.62 + 0.5 * Math.max(0, nrm[0] * light[0] + nrm[1] * light[1] + nrm[2] * light[2]));
     // optional colour across the whole cube on screen (two colours along a direction that turns), shaded per face
     const grad = l.gradient && Array.isArray(l.gradient.colors) ? l.gradient : null;
@@ -988,7 +990,6 @@
     const a = s * Math.min(li, 1 - li), f = (n) => { const k = (n + h / 30) % 12; return li - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
     return [f(0), f(8), f(4), 1];
   }
-  let tentaclePrev = null;
   /**
    * The "tentacles" style: dots fixed over the screen, each with a reach of its own; every dot that can reach the
    * cursor throws a thin curved line to it (each line its own hue, cyan to blue, added as light) and turns white,
@@ -998,14 +999,17 @@
   function drawTentacleField(l, v, S, BX, BY, BW, BH, offX, offY, tl, ph) {
     const count = clamp(Math.round(num(l.count, 500)), 1, 3000);
     const px = S / 1440;   // the original's pixel sizes are for a 1440-high screen
-    const minR = num(l.minReach, 0.035) * S, maxR = num(l.maxReach, 0.21) * S;
+    const minR = prop(v, l, 'minReach', 0.035) * S, maxR = prop(v, l, 'maxReach', 0.21) * S;
     const boost = 1 + num(l.audio?.amount, 0) * level(l.audio?.band ?? 'bass');
     // the disc grows with how far the cursor moves per step of the original (it stepped about 120 times a second)
     let fx, fy, moved;
     if (pointer.seen) {
       fx = (pointer.tx * 0.5 + 0.5) * canvas.width; fy = (pointer.ty * 0.5 + 0.5) * canvas.height;
-      moved = tentaclePrev ? Math.hypot(fx - tentaclePrev[0], fy - tentaclePrev[1]) / 2 : 0;
-      tentaclePrev = [fx, fy];
+      // per layer, and by the real time between frames, so the disc is the same size at any fps limit
+      const now = performance.now(), prev = l._prevPointer;
+      const dt = prev ? clamp((now - prev[2]) / 1000, 1 / 480, 0.1) : 0;
+      moved = prev && dt > 0 ? Math.hypot(fx - prev[0], fy - prev[1]) / (dt * 120) : 0;
+      l._prevPointer = [fx, fy, now];
     } else {
       const turns = Math.max(1, Math.round(num(l.turns, 10))), t = TAU * turns * ph, a = BH / 2 - 10 * px;
       const at = (q) => { const den = Math.sin(q) ** 2 + 1; return [a * Math.SQRT2 * Math.cos(q) / den, a * Math.SQRT2 * Math.cos(q) * Math.sin(q) / den]; };
@@ -1086,11 +1090,11 @@
     const col = color(l.color || '#8fd0ff'), core = color(l.core || '#ffffff');
     const boost = 1 + num(l.audio?.amount, 0) * level(l.audio?.band ?? 'bass');
     const reach = prop(v, l, 'reach', 0.22) * S * boost;
-    const dotR = num(l.size, 0.004) * S;
+    const dotR = prop(v, l, 'size', 0.004) * S;
     let fx, fy;
     if (pointer.seen) { fx = (pointer.tx * 0.5 + 0.5) * canvas.width; fy = (pointer.ty * 0.5 + 0.5) * canvas.height; }
     else { fx = BX + BW * (0.5 + 0.32 * Math.sin(TAU * ph)); fy = BY + BH * (0.5 + 0.28 * Math.sin(TAU * 2 * ph + 1)); }
-    const wob = num(l.wander, 0.01) * S;
+    const wob = prop(v, l, 'wander', 0.01) * S;
     const nodes = [];
     for (let k = 0; k < count; k++) {
       const x = BX + hash(k, 21) * BW + offX + wob * Math.sin(TAU * ((1 + (k % 3)) * ph + hash(k, 23)));
@@ -1103,7 +1107,7 @@
     }
     const flick = Math.floor(tl * Math.max(1, num(l.flicker, 16)));
     const close = nodes.filter((n) => n.d < reach).sort((p, q) => p.d - q.d).slice(0, clamp(Math.round(num(l.arcs, 7)), 1, 24));
-    const w = num(l.width, 0.0016) * S, rough = num(l.roughness, 0.22);
+    const w = prop(v, l, 'width', 0.0016) * S, rough = prop(v, l, 'roughness', 0.22);
     close.forEach((n, k) => {
       const fade = 1 - n.d / reach, on = 0.55 + 0.45 * hash(flick, k, 3);
       const pts = boltPoints(fx, fy, n.x, n.y, flick * 97 + k, rough);
@@ -1127,13 +1131,13 @@
     const seg = clamp(Math.round(num(l.segments, 28)), 4, 64);
     const grow = 1 + num(l.audio?.amount, 0) * level(l.audio?.band ?? 'bass');
     const len = prop(v, l, 'length', 0.25) * S * v.scale * grow;
-    const width = num(l.width, 0.006) * S;
-    const curl = num(l.curl, 1.2);
+    const width = prop(v, l, 'width', 0.006) * S;
+    const curl = prop(v, l, 'curl', 1.2);
     const k = Math.max(1, Math.round(num(l.waves, 2)));
     const col = color(l.color || '#9fd8ff');
-    const heading = num(l.heading, 200) * Math.PI / 180;
+    const heading = prop(v, l, 'heading', 200) * Math.PI / 180;
     for (let j = 0; j < count; j++) {
-      const r = hash(j, 11), spread = num(l.spread, 0.9);
+      const r = hash(j, 11), spread = prop(v, l, 'spread', 0.9);
       let ang = heading + (j / Math.max(1, count - 1) - 0.5) * spread * 2 + (r - 0.5) * 0.3;
       let x = cx, y = cy;
       const step = len * (0.6 + 0.6 * hash(j, 12)) / seg;
@@ -1192,7 +1196,7 @@
         else if (fit === 'contain') { const k = Math.min(BW / img.w, BH / img.h); dw = img.w * k; dh = img.h * k; }
         else if (fit === 'width') { dw = BW; dh = img.h * BW / img.w; }
         else if (fit === 'height') { dh = BH; dw = img.w * BH / img.h; }
-        else { dh = num(l.size, 0.5) * S; dw = img.w * dh / img.h; }
+        else { dh = prop(v, l, 'size', 0.5) * S; dw = img.w * dh / img.h; }
         dw *= v.scale; dh *= v.scale;
         // the image's own anchor point sits on the screen's (cover anchors to the whole canvas)
         const refX = fit === 'cover' ? anchor[0] * CW : ax, refY = fit === 'cover' ? anchor[1] * CH : ay;
@@ -1292,7 +1296,7 @@
         const cols = new Float32Array(32), pos = new Float32Array(8);
         stops.forEach((s, k) => { cols.set(color(s[1]), k * 4); pos[k] = num(s[0], k / Math.max(1, stops.length - 1)); });
         const radial = l.kind === 'radial';
-        const ang = num(l.angle, 90) * Math.PI / 180, dir = [Math.cos(ang), Math.sin(ang)];
+        const ang = prop(v, l, 'angle', 90) * Math.PI / 180, dir = [Math.cos(ang), Math.sin(ang)];
         const corners = [[0, 0], [CW, 0], [0, CH], [CW, CH]].map((p) => p[0] * dir[0] + p[1] * dir[1]);
         const center = Array.isArray(l.center) ? l.center : [0.5, 0.5];
         gl.useProgram(P.gradient.p);
@@ -1303,7 +1307,7 @@
         gl.uniform2f(u.u_dir, dir[0], dir[1]);
         gl.uniform2f(u.u_range, Math.min(...corners), Math.max(...corners));
         gl.uniform2f(u.u_center, BX + num(center[0], 0.5) * BW, BY + num(center[1], 0.5) * BH);
-        gl.uniform1f(u.u_radius, num(l.radius, 0.8) * S * v.scale);
+        gl.uniform1f(u.u_radius, prop(v, l, 'radius', 0.8) * S * v.scale);
         gl.uniform1f(u.u_opacity, v.opacity);
         gl.uniform4fv(u.u_col, cols);
         gl.uniform1fv(u.u_pos, pos);
@@ -1321,8 +1325,8 @@
         drawFlat(flatVerts, flatCount, CW, CH, v.opacity);
       } else if (l.type === 'shape') {
         const kind = l.shape === 'ring' ? 1 : l.shape === 'rect' ? 2 : 0;
-        const w = prop(v, l, 'size', 0.1) * S * v.scale, h = kind === 2 ? prop(v, l, 'height', num(l.size, 0.1)) * S * v.scale : w;
-        const soft = clamp(num(l.softness, 0), 0, 1) * Math.max(w, h) * 0.5;
+        const w = prop(v, l, 'size', 0.1) * S * v.scale, h = kind === 2 ? prop(v, l, 'height', prop(v, l, 'size', 0.1)) * S * v.scale : w;
+        const soft = clamp(prop(v, l, 'softness', 0), 0, 1) * Math.max(w, h) * 0.5;
         const box = [w + soft * 2 + 4, h + soft * 2 + 4];
         gl.useProgram(P.shape.p);
         const u = P.shape.u;
@@ -1330,7 +1334,7 @@
         gl.uniform2f(u.u_box, box[0], box[1]);
         gl.uniform1i(u.u_shape, kind);
         gl.uniform2f(u.u_half, w / 2, h / 2);
-        gl.uniform1f(u.u_thick, num(l.thickness, 0.01) * S);
+        gl.uniform1f(u.u_thick, prop(v, l, 'thickness', 0.01) * S);
         gl.uniform1f(u.u_soft, soft);
         gl.uniform4fv(u.u_color, color(l.color, [1, 1, 1, 1]));
         gl.uniform1f(u.u_opacity, v.opacity);
@@ -1350,9 +1354,9 @@
         gl.uniform1f(u.u_L, LOOP);
         gl.uniform1i(u.u_preset, preset[0]);
         gl.uniform1f(u.u_seed, num(l.seed, i + 1));
-        gl.uniform1f(u.u_size, num(l.size, l.preset === 'rain' ? 0.0015 : l.preset === 'snow' ? 0.006 : l.preset === 'streaks' ? 0.003 : 0.004) * v.scale);
+        gl.uniform1f(u.u_size, prop(v, l, 'size', l.preset === 'rain' ? 0.0015 : l.preset === 'snow' ? 0.006 : l.preset === 'streaks' ? 0.003 : 0.004) * v.scale);
         gl.uniform1f(u.u_speed, Math.max(0.05, prop(v, l, 'speed', 1)));
-        gl.uniform1f(u.u_angle, num(l.angle, l.preset === 'streaks' ? -25 : 8));
+        gl.uniform1f(u.u_angle, prop(v, l, 'angle', l.preset === 'streaks' ? -25 : 8));
         gl.uniform1f(u.u_len, prop(v, l, 'length', 0.35));
         gl.uniform4fv(u.u_cols, pal.data);
         gl.uniform1i(u.u_ncols, pal.count);
@@ -1360,7 +1364,7 @@
         if (l.colorBy === 'draw' && Array.isArray(l.colors) && l.colors.length) {
           // every `colorPeriod` seconds (snapped to divide the loop) a new draw of 3 to 5 of the colours, spread across
           // the screen; each period is one steady fade from its draw into the next, as the original does
-          const period = snapPeriod(num(l.colorPeriod, 8.5), `camada ${l.name || i + 1}, cores`);
+          const period = l._colorPeriod;
           const steps = Math.round(LOOP / period), step = Math.floor(tl / period) % steps, f = (tl % period) / period;
           const draw = (s) => {
             const pool = l.colors.map((c, k) => [hash(s, k, 41), c]).sort((a, b) => a[0] - b[0]).map((e) => e[1]);
@@ -1375,14 +1379,14 @@
           gl.uniform1f(u.u_setMix, f);
         }
         gl.uniform1f(u.u_shift, Math.round(num(l.colorShift, 0)) * ph);   // whole slides per loop
-        gl.uniform1f(u.u_tips, clamp(num(l.tips, 0), 0, 1));
-        gl.uniform1f(u.u_spread, clamp(num(l.speedSpread, 0.4), 0, 0.95));
+        gl.uniform1f(u.u_tips, clamp(prop(v, l, 'tips', 0), 0, 1));
+        gl.uniform1f(u.u_spread, clamp(prop(v, l, 'speedSpread', 0.4), 0, 0.95));
         const thick = Array.isArray(l.thickness) ? l.thickness : [0.6, 1.4];
         gl.uniform2f(u.u_thick, num(thick[0], 0.6), num(thick[1], 1.4));
         gl.uniform1i(u.u_pill, l.shape === 'pill' ? 1 : 0);
-        gl.uniform1f(u.u_lspread, clamp(num(l.lengthSpread, 1), 0, 1.9));
-        gl.uniform1f(u.u_tipLen, clamp(num(l.tipLength, 0.18), 0.005, 1));
-        gl.uniform1f(u.u_tailPow, Math.max(0.1, num(l.tail, 1.6)));
+        gl.uniform1f(u.u_lspread, clamp(prop(v, l, 'lengthSpread', 1), 0, 1.9));
+        gl.uniform1f(u.u_tipLen, clamp(prop(v, l, 'tipLength', 0.18), 0.005, 1));
+        gl.uniform1f(u.u_tailPow, Math.max(0.1, prop(v, l, 'tail', 1.6)));
         gl.uniform1i(u.u_flat, l.profile === 'flat' ? 1 : 0);
         gl.uniform2f(u.u_offset, offX, offY);
         gl.uniform4fv(u.u_color, color(l.color, l.preset === 'fireflies' ? [1, 0.85, 0.4, 1] : [1, 1, 1, 1]));
@@ -1393,7 +1397,7 @@
         layerPass(P.code, (u) => {
           gl.uniform2f(u.u_res, CW, CH);
           gl.uniform2f(u.u_offset, offX, offY);
-          gl.uniform1f(u.u_cell, Math.max(4, num(l.size, 0.018) * S * v.scale));
+          gl.uniform1f(u.u_cell, Math.max(4, prop(v, l, 'size', 0.018) * S * v.scale));
           gl.uniform1f(u.u_ph, ph);
           gl.uniform1f(u.u_L, LOOP);
           gl.uniform1f(u.u_seed, num(l.seed, i + 1));
@@ -1422,25 +1426,25 @@
           gl.uniform2f(u.u_res, CW, CH);
           gl.uniform2f(u.u_offset, offX, offY);
           gl.uniform2f(u.u_center, BX + num(center[0], 0.5) * BW, BY + num(center[1], 0.5) * BH);
-          gl.uniform1f(u.u_angle, (num(l.angle, 0) + v.rotation) * Math.PI / 180);
+          gl.uniform1f(u.u_angle, (prop(v, l, 'angle', 0) + v.rotation) * Math.PI / 180);
           gl.uniform1f(u.u_base, prop(v, l, 'level', 0) * S);
           gl.uniform3fv(u.u_amp, amp); gl.uniform3fv(u.u_wl, wl); gl.uniform3fv(u.u_k, kk); gl.uniform3fv(u.u_phase, phs);
           gl.uniform1f(u.u_ph, ph);
           gl.uniform4fv(u.u_color, color(l.color, [1, 1, 1, 1]));
           gl.uniform4fv(u.u_color2, color(l.color2 || l.color, [1, 1, 1, 1]));
-          gl.uniform1f(u.u_grad, num(l.gradient, 0.4) * S);
-          gl.uniform1f(u.u_shadow, clamp(num(l.shadow, 0.35), 0, 1));
-          gl.uniform1f(u.u_shadowW, num(l.shadowSize, 0.02) * S);
+          gl.uniform1f(u.u_grad, prop(v, l, 'gradient', 0.4) * S);
+          gl.uniform1f(u.u_shadow, clamp(prop(v, l, 'shadow', 0.35), 0, 1));
+          gl.uniform1f(u.u_shadowW, prop(v, l, 'shadowSize', 0.02) * S);
           gl.uniform1f(u.u_opacity, v.opacity);
         });
       } else if (l.type === 'noise') {
         const pal = palette(l.colors || ['#000000', '#ffffff'], 4);
         if (pal.count < 2) { pal.data.set(pal.data.subarray(0, 4), 4); pal.count = 2; }
-        const lightAng = num(l.light, 135) * Math.PI / 180;
+        const lightAng = prop(v, l, 'light', 135) * Math.PI / 180;
         layerPass(P.noise, (u) => {
           gl.uniform2f(u.u_res, CW, CH);
           gl.uniform2f(u.u_offset, offX, offY);
-          gl.uniform1f(u.u_scale, Math.max(2, num(l.size, 0.25) * S * v.scale));
+          gl.uniform1f(u.u_scale, Math.max(2, prop(v, l, 'size', 0.25) * S * v.scale));
           gl.uniform1f(u.u_ph, ph);
           gl.uniform1f(u.u_drift, prop(v, l, 'drift', 0.4));
           gl.uniform1i(u.u_oct, clamp(Math.round(num(l.octaves, 5)), 1, 7));
@@ -1450,21 +1454,21 @@
           gl.uniform2f(u.u_light, Math.cos(lightAng), Math.sin(lightAng));
           gl.uniform4fv(u.u_col, pal.data);
           gl.uniform1i(u.u_ncol, pal.count);
-          gl.uniform1f(u.u_contrast, num(l.contrast, 1.4));
+          gl.uniform1f(u.u_contrast, prop(v, l, 'contrast', 1.4));
           gl.uniform1f(u.u_shine, prop(v, l, 'shine', 0));
           gl.uniform1f(u.u_opacity, v.opacity);
         });
       } else if (l.type === 'water') {
         // light: an azimuth (0 = straight ahead, into the distance) and an elevation, in degrees
-        const az = num(l.light, 0) * Math.PI / 180, el = num(l.lightHeight, 25) * Math.PI / 180;
+        const az = prop(v, l, 'light', 0) * Math.PI / 180, el = prop(v, l, 'lightHeight', 25) * Math.PI / 180;
         layerPass(P.water, (u) => {
           gl.uniform2f(u.u_res, CW, CH);
           gl.uniform2f(u.u_offset, offX, offY);
           gl.uniform1f(u.u_scale, Math.max(2, prop(v, l, 'size', 0.12) * S * v.scale / TAU));
           gl.uniform1f(u.u_ph, ph);
-          gl.uniform1f(u.u_horizon, Math.max(0.05, num(l.horizon, 0.6)));
-          gl.uniform1f(u.u_angle, (90 + num(l.angle, 0)) * Math.PI / 180);
-          gl.uniform1f(u.u_spread, clamp(num(l.spread, 50), 0, 180) * Math.PI / 180);
+          gl.uniform1f(u.u_horizon, Math.max(0.05, prop(v, l, 'horizon', 0.6)));
+          gl.uniform1f(u.u_angle, (90 + prop(v, l, 'angle', 0)) * Math.PI / 180);
+          gl.uniform1f(u.u_spread, clamp(prop(v, l, 'spread', 50), 0, 180) * Math.PI / 180);
           gl.uniform1f(u.u_height, prop(v, l, 'height', 0.7));
           gl.uniform1f(u.u_choppy, prop(v, l, 'choppy', 1));
           gl.uniform1f(u.u_speed, Math.max(0, prop(v, l, 'speed', 2)));
@@ -1475,10 +1479,10 @@
           gl.uniform4fv(u.u_crest, color(l.crest, [0.12, 0.12, 0.12, 1]));
           gl.uniform4fv(u.u_sky, color(l.sky, [0.15, 0.15, 0.15, 1]));
           gl.uniform1f(u.u_shine, prop(v, l, 'shine', 0.5));
-          gl.uniform1f(u.u_gloss, Math.max(1, num(l.gloss, 40)));
+          gl.uniform1f(u.u_gloss, Math.max(1, prop(v, l, 'gloss', 40)));
           gl.uniform1f(u.u_sand, clamp(prop(v, l, 'sand', 0), 0, 1));
-          gl.uniform1f(u.u_sandSize, Math.max(1, num(l.sandSize, 0.0015) * S));
-          gl.uniform1f(u.u_fade, num(l.fade, 0.6));
+          gl.uniform1f(u.u_sandSize, Math.max(1, prop(v, l, 'sandSize', 0.0015) * S));
+          gl.uniform1f(u.u_fade, prop(v, l, 'fade', 0.6));
           gl.uniform1f(u.u_opacity, v.opacity);
         });
       } else if (l.type === 'aurora') {
@@ -1500,14 +1504,14 @@
           gl.uniform1f(u.u_base, prop(v, l, 'level', -0.1) * S);
           gl.uniform1f(u.u_height, Math.max(1, prop(v, l, 'height', 0.3) * S));
           gl.uniform3fv(u.u_amp, amp); gl.uniform3fv(u.u_wl, wl); gl.uniform3fv(u.u_k, kk);
-          gl.uniform1f(u.u_rayW, Math.max(1, num(l.rayWidth, 0.004) * S));
+          gl.uniform1f(u.u_rayW, Math.max(1, prop(v, l, 'rayWidth', 0.004) * S));
           gl.uniform1f(u.u_seed, hash(num(l.seed, i + 1), 91) * 100);
           gl.uniform4fv(u.u_c0, color(cols[0], [0.2, 1, 0.6, 1]));
           gl.uniform4fv(u.u_c1, color(cols[1] ?? cols[0], [0.2, 0.85, 0.7, 1]));
           gl.uniform4fv(u.u_c2, color(cols[2] ?? cols[cols.length - 1], [0.6, 0.35, 1, 1]));
           gl.uniform1f(u.u_intensity, prop(v, l, 'intensity', 1));
-          gl.uniform1f(u.u_angle, (num(l.angle, 0) + v.rotation) * Math.PI / 180);
-          gl.uniform1f(u.u_haze, clamp(num(l.haze, 0.18), 0, 1));
+          gl.uniform1f(u.u_angle, (prop(v, l, 'angle', 0) + v.rotation) * Math.PI / 180);
+          gl.uniform1f(u.u_haze, clamp(prop(v, l, 'haze', 0.18), 0, 1));
           gl.uniform1f(u.u_opacity, v.opacity);
         });
       } else if (l.type === 'electric') {
@@ -1520,7 +1524,7 @@
         const circle = l.shape === 'circle';
         const from = num(l.from, 0), to = num(l.to, 48);
         const spec = new Float32Array(64);
-        const gain = num(l.gain, 1);
+        const gain = prop(v, l, 'gain', 1);
         for (let k = 0; k < 64; k++) spec[k] = spectrum[k] * gain;
         if (!l.blend) setBlend('add');
         gl.useProgram(P.bars.p);
@@ -1531,9 +1535,9 @@
         gl.uniform1i(u.u_mode, circle ? 1 : 0);
         gl.uniform2f(u.u_origin, ax + offX, ay + offY);
         gl.uniform1f(u.u_span, prop(v, l, 'width', 0.8) * S * v.scale);
-        gl.uniform1f(u.u_barW, Math.max(1, num(l.barWidth, 0.006) * S * v.scale));
+        gl.uniform1f(u.u_barW, Math.max(1, prop(v, l, 'barWidth', 0.006) * S * v.scale));
         gl.uniform1f(u.u_maxH, prop(v, l, 'height', 0.2) * S * v.scale);
-        gl.uniform1f(u.u_minH, Math.max(1, num(l.minHeight, 0.004) * S));
+        gl.uniform1f(u.u_minH, Math.max(1, prop(v, l, 'minHeight', 0.004) * S));
         gl.uniform1f(u.u_radius, prop(v, l, 'radius', 0.15) * S * v.scale);
         gl.uniform1f(u.u_from, from);
         gl.uniform1f(u.u_to, to);

@@ -28,6 +28,7 @@ public sealed class LibraryItem
     /// <summary>.vivo only: shipped with the app, and whether it plays live (reacts to sound) instead of as a video.</summary>
     public bool IsExample { get; init; }
     public bool Realtime { get; init; }
+    public bool ReactsToSound { get; init; }
 }
 
 public sealed class LibraryScan
@@ -135,7 +136,7 @@ public static class Library
         {
             Id = user?.Id ?? IdFor(file), Title = user?.Title ?? info.Title, Type = WallpaperType.Package, File = file,
             Folder = Path.GetDirectoryName(file), Preview = info.Preview, Date = user?.Added ?? System.IO.File.GetLastWriteTime(file),
-            Tags = tags.Where(t => !string.IsNullOrWhiteSpace(t)).ToList(), IsExample = user == null, Realtime = info.Realtime,
+            Tags = tags.Where(t => !string.IsNullOrWhiteSpace(t)).ToList(), IsExample = user == null, Realtime = info.Realtime, ReactsToSound = info.ReactsToSound,
             ParallaxAmount = info.Parallax,
         });
     }

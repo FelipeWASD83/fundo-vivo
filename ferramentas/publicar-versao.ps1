@@ -1,15 +1,20 @@
 ﻿# Publica a versão atual do Fundo Vivo como release no GitHub (é ela que o botão "Procurar atualização" baixa).
-# Antes: subir a versão no src\FundoVivo\FundoVivo.csproj e no CHANGELOG.md, commitar e dar push.
-# Precisa do gh logado (gh auth login) com permissão no repositório. Publicar é decisão do Felipe.
+# Mesmo formato do clave, do relogio-mond e do ilha-cursors: versao.json com "versao" e "repositorio", pacote
+# fundo-vivo-<versão>.zip, release vX.Y.Z com o título "Fundo Vivo X.Y.Z" e as notas da seção do CHANGELOG.
+# Antes: subir a versão no versao.json, no src\FundoVivo\FundoVivo.csproj e no topo do CHANGELOG.md (os três juntos),
+# commitar e dar push. Precisa do gh logado (gh auth login). Publicar é decisão do Felipe.
 #
-# -SoGerar: não fala com o GitHub. Compila, empacota em build\release\fundo-vivo-<versão>.zip (com as notas e o
-# SHA-256 ao lado), desempacota numa pasta à parte e confere que o Windows deixa essa cópia rodar. É o pacote que o
-# instalador do pack usa, e o mesmo que iria para a release.
-param([switch]$SoGerar)
+# -SoGerar [pasta]: não fala com o GitHub. Compila, empacota fundo-vivo-<versão>.zip na pasta (padrão build\release,
+# que é onde o setup do pacote-windows-bonito procura), com as notas e o SHA-256 ao lado, desempacota numa pasta à
+# parte e confere que o Windows deixa essa cópia rodar. É o mesmo pacote que iria para a release.
+#
+# Uso:
+#   powershell -ExecutionPolicy Bypass -File .\ferramentas\publicar-versao.ps1
+#   powershell -ExecutionPolicy Bypass -File .\ferramentas\publicar-versao.ps1 -SoGerar [<pasta>]
+param([switch]$SoGerar, [Parameter(Position = 0)][string]$Pasta = '')
 $ErrorActionPreference = 'Stop'
 $raiz = Split-Path -Parent $PSScriptRoot
 Set-Location $raiz
-$repo = 'FelipeWASD83/fundo-vivo'
 
 function Rodar([string]$exe, [string[]]$argumentos) {
     $ErrorActionPreference = 'Continue'
@@ -17,11 +22,16 @@ function Rodar([string]$exe, [string[]]$argumentos) {
     return [pscustomobject]@{ codigo = $LASTEXITCODE; saida = (($saida -join "`n").Trim()) }
 }
 
-$csproj = Get-Content (Join-Path $raiz 'src\FundoVivo\FundoVivo.csproj') -Raw -Encoding UTF8
+$info = [IO.File]::ReadAllText((Join-Path $raiz 'versao.json')) | ConvertFrom-Json
+$versao = $info.versao
+$repo = $info.repositorio
+# a versão mora em três lugares e eles andam juntos
+$csproj = [IO.File]::ReadAllText((Join-Path $raiz 'src\FundoVivo\FundoVivo.csproj'))
 if ($csproj -notmatch '<Version>([^<]+)</Version>') { throw 'Não achei <Version> no FundoVivo.csproj.' }
-$versao = $Matches[1]
-$changelog = Get-Content (Join-Path $raiz 'CHANGELOG.md') -Raw -Encoding UTF8
-if ($changelog -notmatch "## $([regex]::Escape($versao)) ") { throw "O CHANGELOG.md não tem a seção da versão $versao." }
+if ($Matches[1] -ne $versao) { throw "O versao.json diz $versao e o FundoVivo.csproj diz $($Matches[1])." }
+$changelog = [IO.File]::ReadAllText((Join-Path $raiz 'CHANGELOG.md'))
+$topo = ($changelog -split "`r?`n") | Where-Object { $_ -match '^## ' } | Select-Object -First 1
+if ($topo -notmatch "^## $([regex]::Escape($versao)) ") { throw "O topo do CHANGELOG.md não é a versão $versao ($topo)." }
 
 if ((Rodar git @('status', '--porcelain')).saida) { throw 'Há mudanças não commitadas. Commite antes de publicar.' }
 $local = (Rodar git @('rev-parse', 'HEAD')).saida
@@ -37,7 +47,7 @@ if (-not $SoGerar) {
 # Compila do zero (com o carimbo contra o Smart App Control) e empacota só a pasta do programa.
 & (Join-Path $PSScriptRoot 'compilar.ps1')
 # -SoGerar deixa os pacotes das outras versões onde estão (o instalador do pack pode apontar para um deles).
-$tmp = if ($SoGerar) { Join-Path $raiz 'build\release' } else { Join-Path $env:TEMP "fundo-vivo-release-$versao" }
+$tmp = if (-not $SoGerar) { Join-Path $env:TEMP "fundo-vivo-release-$versao" } elseif ($Pasta) { [IO.Path]::GetFullPath($Pasta) } else { Join-Path $raiz 'build\release' }
 if (-not $SoGerar -and (Test-Path $tmp)) { Remove-Item $tmp -Recurse -Force }
 New-Item -ItemType Directory -Force $tmp | Out-Null
 $zip = Join-Path $tmp "fundo-vivo-$versao.zip"
@@ -45,7 +55,17 @@ $zip = Join-Path $tmp "fundo-vivo-$versao.zip"
 # grava com barra invertida).
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 if (Test-Path $zip) { Remove-Item $zip -Force }
-[System.IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $raiz 'build\publish'), $zip, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+# Sem os .pdb (símbolos de depuração), como os outros pacotes. O FundoVivo.exe fica na raiz do zip, que é onde o setup
+# o procura (o atualizador aceita a raiz ou uma pasta, desde a 1.0.0). Entrada por entrada, sempre com barra normal.
+$archive = [System.IO.Compression.ZipFile]::Open($zip, 'Create')
+try {
+    $origem = Join-Path $raiz 'build\publish'
+    $prefixo = (Resolve-Path $origem).Path.TrimEnd('\').Length + 1
+    foreach ($arquivo in Get-ChildItem $origem -Recurse -File | Where-Object Extension -ne '.pdb') {
+        $nome = $arquivo.FullName.Substring($prefixo).Replace('\', '/')
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $arquivo.FullName, $nome, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+} finally { $archive.Dispose() }
 
 $linhas = $changelog -split "`r?`n"
 $inicio = [array]::IndexOf($linhas, ($linhas | Where-Object { $_ -match "^## $([regex]::Escape($versao)) " } | Select-Object -First 1))

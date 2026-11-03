@@ -223,10 +223,17 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
 - Refazer as imagens dos exemplos: `python ferramentas\make_example_assets.py`
 - Fechar o motor: `app\FundoVivo.exe --quit`
 - Diagnóstico (escreve no `describe.log`): `app\FundoVivo.exe --describe`
-- Publicar versão (decisão dele): subir `<Version>` e o `CHANGELOG.md`, commit, push, `ferramentas\publicar-versao.ps1`.
-- Só gerar o pacote, sem GitHub: `ferramentas\publicar-versao.ps1 -SoGerar` compila, empacota em
-  `build\release\fundo-vivo-<versão>.zip` (com `notas-<versão>.md` e `SHA256-<versão>.txt`; os pacotes das outras versões ficam), abre a cópia desempacotada e confere que
-  o Windows deixa ela rodar. É o pacote que o instalador do pack dele usa.
+- Publicar versão (decisão dele): subir a versão no `versao.json`, no `<Version>` do csproj e no topo do `CHANGELOG.md`
+  (o script recusa se os três não batem), commit, push, `ferramentas\publicar-versao.ps1`.
+- Só gerar o pacote, sem GitHub: `ferramentas\publicar-versao.ps1 -SoGerar [pasta]` compila, empacota em
+  `build\release\fundo-vivo-<versão>.zip` (ou na pasta dada; com `notas-<versão>.md` e `SHA256-<versão>.txt`; os pacotes
+  das outras versões ficam), abre a cópia desempacotada e confere que o Windows deixa ela rodar. É o pacote que o
+  setup do `pacote-windows-bonito` usa (ele chama sem pasta e procura em `build\release`).
+- **Formato de release comum aos apps do setup (2.9.1, pedido dele em 03/11/2026)**: o do `clave`, que o
+  `relogio-mond` e o `ilha-cursors` já seguem (a ilha ainda não tinha `versao.json` nesse dia): `versao.json` na raiz com `versao` e `repositorio`, pacote
+  `<repo>-<versão>.zip`, tag `vX.Y.Z`, título "Fundo Vivo X.Y.Z", notas da seção do changelog, `--quit` para fechar. O
+  zip não leva `.pdb` e o `FundoVivo.exe` fica na raiz dele: o setup procura ali, e o atualizador aceita a raiz ou uma
+  pasta desde a 1.0.0, então mudar o miolo do zip não quebra a atualização de ninguém.
 
 ## 3. Decisões que não se desfazem sem motivo
 

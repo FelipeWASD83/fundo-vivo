@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.9.1 (03/11/2026)
+
+### Corrigido
+- Um wallpaper com cores sorteadas (como a cópia do Chroma Drencher) ia enchendo a memória enquanto rodava, por causa de um aviso repetido a cada quadro. Agora o aviso sai uma vez só, ao abrir.
+- O efeito de tremer a tela sem uma faixa de som escrita não tremia: o wallpaper virava vídeo, gravado sem som. Agora ele toca ao vivo e treme com o grave, como a documentação diz.
+- Animar o tamanho, o ângulo, a largura, a curva e outros números das camadas (partículas, chuva de código, ruído, aurora, tentáculos, barras) não fazia nada. Agora todo número contínuo de uma camada pode ser animado, e a documentação lista os poucos que ficam fixos.
+- A biblioteca dizia "reage ao som" em todo wallpaper ao vivo, até nos que só seguem o mouse ou têm um loop longo. Agora diz só "ao vivo" nesses.
+- No estilo tentáculos, o círculo que cresce quando o mouse anda tinha um tamanho diferente para cada limite de fps, e com duas camadas assim a segunda não crescia.
+
+### Mudou
+- O pacote da versão segue o mesmo formato do relógio e dos cursores (`versao.json` com a versão), para o instalador do pacote tratar os apps do mesmo jeito. O pacote ficou menor: sem os arquivos de depuração.
+
 ## 2.9.0 (03/11/2026)
 
 ### Novo

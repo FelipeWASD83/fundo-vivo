@@ -14,8 +14,10 @@ public sealed class VivoInfo
     public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
     public double Loop { get; init; } = 20;
     public double Parallax { get; init; }
-    /// <summary>Uses something that depends on the moment (today, only the sound): plays live instead of as a video.</summary>
+    /// <summary>Uses something that depends on the moment (the sound, the mouse, a loop too long for a video): plays live.</summary>
     public bool Realtime { get; init; }
+    /// <summary>Listens to the PC's sound (an audio animation, a spectrum, a layer's "audio", an effect's band, a shake).</summary>
+    public bool ReactsToSound { get; init; }
     public string Preview { get; init; }
 }
 
@@ -68,12 +70,13 @@ public static class Packages
             if (root["format"]?.ToString() != "fundo-vivo") throw new InvalidDataException("não é um wallpaper do Fundo Vivo");
 
             // the same test as the runtime's wantsSound: an audio animation, a spectrum or an electric layer (it follows
-            // the mouse), a layer's "audio", an effect's "band"
+            // the mouse), a layer's "audio", an effect's "band" or a shake (it listens to the bass when no band is given)
             var layers = (root["layers"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().ToList();
-            bool realtime = layers.SelectMany(l => (l["animate"] as JsonArray)?.AsEnumerable() ?? Enumerable.Empty<JsonNode>())
+            bool sound = layers.SelectMany(l => (l["animate"] as JsonArray)?.AsEnumerable() ?? Enumerable.Empty<JsonNode>())
                     .Any(a => a?["type"]?.ToString() == "audio")
-                || layers.Any(l => l["type"]?.ToString() is "spectrum" or "electric" || l["audio"] is JsonObject)
-                || (root["effects"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().Any(e => e["band"] != null)
+                || layers.Any(l => l["type"]?.ToString() == "spectrum" || l["audio"] is JsonObject)
+                || (root["effects"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().Any(e => e["band"] != null || e["type"]?.ToString() == "shake");
+            bool realtime = sound || layers.Any(l => l["type"]?.ToString() == "electric")
                 // a loop longer than two minutes would be a huge video: it always plays live (the runtime takes up to an hour)
                 || Number(root["loop"], 20) > 120;
             string preview = null;
@@ -93,6 +96,7 @@ public static class Packages
                 Loop = Math.Clamp(Number(root["loop"], 20), 1, 120),
                 Parallax = Math.Clamp(Number(root["parallax"], 0), 0, 0.15),
                 Realtime = realtime,
+                ReactsToSound = sound,
                 Preview = preview,
             };
         }

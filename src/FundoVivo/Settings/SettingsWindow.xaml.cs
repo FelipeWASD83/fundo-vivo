@@ -420,7 +420,7 @@ public partial class SettingsWindow : Window
         {
             string stamp = Packages.Stamp(item.File);
             var done = _config.ConvertedScenes.Where(c => c.SceneId == item.Id && c.SourceStamp == stamp && File.Exists(c.Output)).Select(c => $"{c.MonitorWidth}×{c.MonitorHeight}").Distinct().ToList();
-            meta += item.Realtime ? " · ao vivo, reage ao som" : done.Count > 0 ? " · vídeo pronto: " + string.Join(", ", done) : " · vira vídeo ao usar";
+            meta += item.Realtime ? (item.ReactsToSound ? " · ao vivo, reage ao som" : " · ao vivo") : done.Count > 0 ? " · vídeo pronto: " + string.Join(", ", done) : " · vira vídeo ao usar";
         }
         if (item.Type == WallpaperType.Scene)
         {
@@ -766,7 +766,7 @@ public partial class SettingsWindow : Window
         string source = _scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.FromWallpaperEngine == true ? "Wallpaper Engine" : "seu arquivo";
         SideDetail.Text = a.Package != null
             ? a.Type == WallpaperType.Web
-                ? $"Vivo ao vivo (reage ao som) · {state}"
+                ? (_scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.ReactsToSound == true ? $"Vivo ao vivo (reage ao som) · {state}" : $"Vivo ao vivo · {state}")
                 : $"Vivo renderizado em vídeo · {state}" + (a.ParallaxMargin > 0 ? ". O parallax virou um pan com o mouse: o vídeo inteiro anda junto." : "")
             : a.SceneId != null && Path.GetExtension(_scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.File ?? "").Equals(".gif", StringComparison.OrdinalIgnoreCase)
             ? $"GIF animado, tocando como vídeo · {state}"

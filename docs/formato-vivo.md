@@ -218,8 +218,14 @@ Uma lista de animações por propriedade, todas em **loop**, nunca em linha do t
 | `noise` | soma um ruído suave de amplitude `amount`, que se repete a cada `period` |
 | `audio` | soma `amount × nível` da faixa `band` (`bass`, `mid`, `treble`, `all`) do som do PC |
 
-`property` pode ser `x`, `y` (em `s`), `scale`, `rotation` (graus) ou `opacity`, e, desde a 2.5.0, **qualquer número da
-camada** (`length` dos riscos, `amplitude` da onda, `shine` do ruído, `density`...). `phase` (0 a 1) desloca o começo.
+`property` pode ser `x`, `y` (em `s`), `scale`, `rotation` (graus) ou `opacity`, e, desde a 2.5.0, **qualquer número
+contínuo da camada** (`length` dos riscos, `amplitude` da onda, `shine` do ruído, `density`, `size`, `angle`, `width`,
+`rayWidth`, `haze`, `contrast`, `barWidth`...). `phase` (0 a 1) desloca o começo.
+
+Ficam fixos, lidos uma vez só (desde a 2.9.1 a lista é esta): as **contagens** (`count`, `cells`, `segments`, `bars`,
+`turns`, `waves` do tentáculo, `arcs`, `octaves`, `detail`, `changes`, `trail`, `flicker`, `colorShift`), a `seed`, os
+**períodos** (`colorPeriod`, `reveal`), as faixas `from` e `to` das barras, as cores, e o `size` e o `lineHeight` do
+texto (o texto é desenhado uma vez numa imagem: para ele crescer e encolher, anime o `scale`).
 
 `band` (no `audio`) pode ser `bass`, `mid`, `treble`, `all`, um número de 0 a 63 (uma das 64 faixas, do grave ao agudo)
 ou `[de, até]` (a média dessas faixas).
@@ -242,7 +248,7 @@ vídeo). `spin` sempre dá um número inteiro de voltas por loop.
 | `grade` | `brightness` (-1 a 1), `contrast`, `saturation` (1 = normal), `hue` (graus), `tint`, `tintAmount` (0 a 1) | correção de cor |
 | `grain` | `amount` (0 a 0,3) | grão de filme |
 | `glow` | `threshold` (0 a 1), `strength`, `radius` (em `s`) | o que é claro brilha em volta |
-| `shake` | `amount` (em `s`), `band` (padrão `bass`) | a imagem inteira treme com a faixa (2.5.0) |
+| `shake` | `amount` (em `s`), `band` (padrão `bass`) | a imagem inteira treme com a faixa (2.5.0); sempre toca ao vivo, mesmo sem `band` escrito |
 | `chromatic` | `amount`, `band`, `bandAmount` | separa o vermelho e o azul, mais forte com a faixa (2.5.0) |
 | `rays` | `anchor`, `x`, `y` (como uma camada: âncora mais deslocamento em `s`), `threshold`, `strength`, `length` (0 a 1) | raios de luz saindo de um ponto (o que passa do `threshold` vira raio) |
 
