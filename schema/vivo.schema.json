@@ -132,7 +132,8 @@
             "cube",
             "tendrils",
             "water",
-            "electric"
+            "electric",
+            "aurora"
           ]
         },
         "name": {
@@ -684,6 +685,17 @@
         },
         "overEffects": {
           "type": "boolean"
+        },
+        "rayWidth": {
+          "type": "number"
+        },
+        "intensity": {
+          "type": "number"
+        },
+        "haze": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         }
       },
       "allOf": [

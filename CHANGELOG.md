@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.0 (03/11/2026)
+
+### Novo
+- Wallpaper **Aurora boreal**: três cortinas de aurora cruzando o céu escuro, em verde, ciano, azul, rosa e violeta, com raios que deslizam e acendem com o grave. Agora são dez no filtro Vivo.
+- O formato `.vivo` ganhou a camada de aurora: uma fita de luz com a borda de baixo nítida, raios verticais que somem para cima, cores que mudam da borda ao topo e dobras que andam.
+
 ## 2.8.2 (03/11/2026)
 
 ### Novo

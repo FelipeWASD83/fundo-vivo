@@ -1,0 +1,205 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Aurora boreal",
+  "author": "Fundo Vivo",
+  "tags": [
+    "Natureza",
+    "Céu",
+    "Noite"
+  ],
+  "loop": 60,
+  "background": "#02030c",
+  "parallax": 0.035,
+  "preview": "preview.jpg",
+  "layers": [
+    {
+      "name": "céu",
+      "type": "gradient",
+      "kind": "linear",
+      "angle": 90,
+      "stops": [
+        [
+          0,
+          "#02030b"
+        ],
+        [
+          1,
+          "#03040d"
+        ]
+      ]
+    },
+    {
+      "name": "brilho baixo",
+      "type": "gradient",
+      "kind": "radial",
+      "center": [
+        0.5,
+        1.2
+      ],
+      "radius": 1.0,
+      "blend": "add",
+      "stops": [
+        [
+          0,
+          "#06041000"
+        ],
+        [
+          1,
+          "#00000000"
+        ]
+      ],
+      "depth": 0.05
+    },
+    {
+      "name": "estrelas",
+      "type": "particles",
+      "preset": "dust",
+      "density": 1.5,
+      "size": 0.0013,
+      "color": "#eef4ff",
+      "opacity": 0.8,
+      "depth": 0.05
+    },
+    {
+      "name": "aurora principal",
+      "type": "aurora",
+      "level": 0.12,
+      "angle": -9,
+      "height": 0.5,
+      "rayWidth": 0.0045,
+      "seed": 3,
+      "colors": [
+        "#5cff8f",
+        "#2fe8c8",
+        "#8a4cff"
+      ],
+      "intensity": 1.05,
+      "depth": 0.3,
+      "haze": 0.015,
+      "waves": [
+        {
+          "amplitude": 0.13,
+          "length": 2.4,
+          "period": 60
+        },
+        {
+          "amplitude": 0.04,
+          "length": 0.8,
+          "period": -30
+        },
+        {
+          "amplitude": 0.01,
+          "length": 0.24,
+          "period": 20
+        }
+      ],
+      "animate": [
+        {
+          "property": "intensity",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.63
+        }
+      ]
+    },
+    {
+      "name": "aurora rosa",
+      "type": "aurora",
+      "level": -0.2,
+      "angle": 7,
+      "height": 0.32,
+      "rayWidth": 0.0035,
+      "seed": 13,
+      "colors": [
+        "#ff6ad0",
+        "#d24cff",
+        "#5a3cff"
+      ],
+      "intensity": 0.8,
+      "depth": 0.15,
+      "haze": 0.01,
+      "waves": [
+        {
+          "amplitude": 0.09,
+          "length": 1.9,
+          "period": -60
+        },
+        {
+          "amplitude": 0.03,
+          "length": 0.7,
+          "period": 30
+        },
+        {
+          "amplitude": 0.007,
+          "length": 0.2,
+          "period": -15
+        }
+      ],
+      "animate": [
+        {
+          "property": "intensity",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.48
+        }
+      ]
+    },
+    {
+      "name": "aurora azul",
+      "type": "aurora",
+      "level": 0.36,
+      "angle": -16,
+      "height": 0.3,
+      "rayWidth": 0.004,
+      "seed": 8,
+      "colors": [
+        "#4cf2ff",
+        "#3a8cff",
+        "#c04cff"
+      ],
+      "intensity": 0.8,
+      "depth": 0.4,
+      "haze": 0.01,
+      "waves": [
+        {
+          "amplitude": 0.07,
+          "length": 1.6,
+          "period": 30
+        },
+        {
+          "amplitude": 0.025,
+          "length": 0.6,
+          "period": -20
+        },
+        {
+          "amplitude": 0.006,
+          "length": 0.22,
+          "period": 12
+        }
+      ],
+      "animate": [
+        {
+          "property": "intensity",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.48
+        }
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "type": "glow",
+      "threshold": 0.7,
+      "strength": 0.5,
+      "radius": 0.008,
+      "band": "bass",
+      "bandAmount": 0.8
+    },
+    {
+      "type": "grain",
+      "amount": 0.018
+    }
+  ]
+}

@@ -190,6 +190,14 @@ Comum a todas: `type`, `name` (opcional), `anchor`, `x`, `y`, `opacity` (0 a 1),
 - `overEffects: true` numa camada (2.8.2): ela é desenhada depois dos `effects`, por cima do resultado, sem passar por
   eles.
 
+### Camada de aurora (2.9.0)
+
+- **`aurora`**: uma fita de luz no céu. `level` (altura da borda de baixo, em `s` a partir do `center`), `angle`
+  (inclinação da borda, em graus; os raios continuam verticais), `height` (até onde os raios sobem, em `s`), `waves`
+  (até 3, como na `wave`: `amplitude`, `length`, `period`), `rayWidth` (largura dos raios, em `s`), `colors` (três:
+  a borda, o meio e o topo), `intensity` (dá para animar, inclusive pelo som), `haze` (0 a 1, um brilho fraco abaixo
+  da borda) e `seed`. Soma luz por cima do que estiver atrás.
+
 ## Animações (`animate`)
 
 Uma lista de animações por propriedade, todas em **loop**, nunca em linha do tempo:

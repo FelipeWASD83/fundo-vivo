@@ -30,7 +30,7 @@ botão direito para pausar tudo ou sair).
   página HTML.
 
 Os wallpapers **Vivo** são o formato próprio do app (`.vivo`): camadas, partículas, efeitos e animações descritos num
-arquivo de texto, que se ajustam sozinhos a qualquer proporção de tela. Nove exemplos vêm junto. O que não reage a
+arquivo de texto, que se ajustam sozinhos a qualquer proporção de tela. Dez exemplos vêm junto. O que não reage a
 som vira vídeo em poucos segundos e gasta o que um vídeo gasta; o que reage a som toca ao vivo. Como fazer um:
 [`docs/formato-vivo.md`](docs/formato-vivo.md).
 

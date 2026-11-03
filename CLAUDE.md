@@ -283,7 +283,12 @@ coleta logo depois de tirar um wallpaper).
 - **Feito, wallpapers próprios** (2.8.0, pedido dele): `night-tide`, `aurora-curtain`, `dusk-layers`, `sparks` e `sound-cube` em
   `examples/`, ao lado dos quatro da 2.0.0. Só camadas procedurais (nenhuma imagem nem fonte de ninguém); cada um mostra
   um recurso (mar, riscos com cores sorteadas, ondas, eletricidade, cubo com barras do som). A `preview.jpg` sai do
-  `--vivo-still` em 1280x720 com som de mentira. Os nove a 60 fps no ultrawide.
+  `--vivo-still` em 1280x720 com som de mentira. Os nove a 60 fps no ultrawide. Na 2.9.0 entrou o décimo, `northern-lights`
+  (Aurora boreal, a pedido dele: só céu, três fitas coloridas), com a camada `aurora` nova (`P.aurora`): a borda é
+  inclinada por `tan(angle)` sem girar os raios, que ficam verticais, e entre os raios o fundo é zero. **Armadilha
+  vista nela**: qualquer luz difusa no corpo da fita, um céu que clareia para baixo ou uma costura que escorre abaixo
+  da borda fazem o espaço abaixo de cada fita parecer um morro; o céu fica escuro por igual. O fps dele e o do Chroma e
+  do SandBlack da 2.8.2 ficaram sem medir: ele estava jogando CS2 (97% da placa), e a medição dá 9 a 17 fps.
 
 - **Explorer reiniciando não foi testado**: o Relógio Mond vive pendurado no `Progman` e o `ilha` depende do
   Explorer, então derrubar o Explorer no PC dele podia quebrar os dois. O código (`TaskbarCreated`) está lá.

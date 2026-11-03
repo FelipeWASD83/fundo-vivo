@@ -383,6 +383,38 @@
         o = vec4(rgb, 1.0) * u_opacity;
       }`);
 
+    // An aurora: a ribbon of light whose sharp lower edge winds across the sky (three waves, whole turns per loop), made of
+    // vertical rays that fade upward, coloured from the edge (green) to the top (violet), brighter where its folds bunch up.
+    P.aurora = program(FULL_VS, HEAD + PIXEL + `in vec2 v_uv; uniform vec2 u_res; uniform vec2 u_offset; uniform vec2 u_center;
+      uniform float u_ph; uniform float u_base; uniform float u_height; uniform vec3 u_amp; uniform vec3 u_wl; uniform vec3 u_k;
+      uniform float u_rayW; uniform float u_seed; uniform vec4 u_c0; uniform vec4 u_c1; uniform vec4 u_c2; uniform float u_intensity;
+      uniform float u_opacity; uniform float u_angle; uniform float u_haze; out vec4 o;
+      float n1(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+        return mix(hsh(vec2(i, u_seed)), hsh(vec2(i + 1.0, u_seed)), f); }
+      void main() {
+        // the edge is tilted by the angle, but the rays stay vertical, as real ones point up the sky
+        vec2 p = pixel(v_uv, u_res, u_offset) - u_center;
+        float t = 6.2831853 * u_ph;
+        float edge = u_base - p.x * tan(u_angle);
+        for (int i = 0; i < 3; i++) edge += u_amp[i] * sin(6.2831853 * p.x / u_wl[i] - u_k[i] * t + float(i) * 1.9 + u_seed);
+        // how far above the lower edge, in ribbon heights (y runs down)
+        float u = (edge - p.y) / u_height;
+        if (u < -0.3 || u > 1.6) { o = vec4(0.0); return; }
+        float body = smoothstep(-0.01, 0.03, u) * exp(-max(u, 0.0) * 2.8) * smoothstep(1.4, 0.5, u);
+        // a bright seam at the edge, and a wider haze that lights the sky under the ribbon
+        float glow = (u < 0.0 ? exp(u * 60.0) : exp(-u * 14.0)) * 0.6 + (u < 0.0 ? exp(u * 4.0) * u_haze : 0.0);
+        // rays: fine striations sliding along the ribbon (a circle in noise space, so the loop closes)
+        float rx = p.x / u_rayW;
+        float rays = 1.9 * pow(n1(rx + 3.0 * sin(t)) * n1(rx * 0.37 + 5.0 + 2.0 * cos(t)), 1.6);
+        // folds: broad brightening that drifts along
+        float folds = 0.35 + 0.65 * pow(n1(p.x / (u_rayW * 22.0) + 2.0 * sin(t + 1.0) + 7.0), 1.5);
+        float a = (body * rays + glow) * folds * u_intensity;
+        vec3 c = mix(u_c0.rgb, u_c1.rgb, smoothstep(0.0, 0.35, u));
+        c = mix(c, u_c2.rgb, smoothstep(0.35, 1.1, u));
+        a *= u_opacity;
+        o = vec4(c * a, a);
+      }`);
+
     // Bars of the sound spectrum, in a line or around a circle, rounded, with a colour gradient across them.
     P.bars = program(HEAD + `in vec2 a; uniform vec2 u_res; uniform float u_spec[64]; uniform float u_n; uniform int u_mode;
       uniform vec2 u_origin; uniform float u_span; uniform float u_barW; uniform float u_maxH; uniform float u_minH; uniform float u_radius;
@@ -1447,6 +1479,35 @@
           gl.uniform1f(u.u_sand, clamp(prop(v, l, 'sand', 0), 0, 1));
           gl.uniform1f(u.u_sandSize, Math.max(1, num(l.sandSize, 0.0015) * S));
           gl.uniform1f(u.u_fade, num(l.fade, 0.6));
+          gl.uniform1f(u.u_opacity, v.opacity);
+        });
+      } else if (l.type === 'aurora') {
+        if (!l.blend) setBlend('add');
+        const waves = (Array.isArray(l.waves) && l.waves.length ? l.waves : [{}]).slice(0, 3);
+        const amp = [0, 0, 0], wl = [1, 1, 1], kk = [0, 0, 0];
+        waves.forEach((w, k) => {
+          amp[k] = num(w.amplitude, 0.05) * S;
+          wl[k] = Math.max(0.01, num(w.length, 0.8)) * S;
+          kk[k] = cycles(num(w.period, LOOP));
+        });
+        const cols = Array.isArray(l.colors) && l.colors.length ? l.colors : ['#3dff9a', '#2ad8b0', '#9a5cff'];
+        const center = Array.isArray(l.center) ? l.center : [0.5, 0.5];
+        layerPass(P.aurora, (u) => {
+          gl.uniform2f(u.u_res, CW, CH);
+          gl.uniform2f(u.u_offset, offX, offY);
+          gl.uniform2f(u.u_center, BX + num(center[0], 0.5) * BW, BY + num(center[1], 0.5) * BH);
+          gl.uniform1f(u.u_ph, ph);
+          gl.uniform1f(u.u_base, prop(v, l, 'level', -0.1) * S);
+          gl.uniform1f(u.u_height, Math.max(1, prop(v, l, 'height', 0.3) * S));
+          gl.uniform3fv(u.u_amp, amp); gl.uniform3fv(u.u_wl, wl); gl.uniform3fv(u.u_k, kk);
+          gl.uniform1f(u.u_rayW, Math.max(1, num(l.rayWidth, 0.004) * S));
+          gl.uniform1f(u.u_seed, hash(num(l.seed, i + 1), 91) * 100);
+          gl.uniform4fv(u.u_c0, color(cols[0], [0.2, 1, 0.6, 1]));
+          gl.uniform4fv(u.u_c1, color(cols[1] ?? cols[0], [0.2, 0.85, 0.7, 1]));
+          gl.uniform4fv(u.u_c2, color(cols[2] ?? cols[cols.length - 1], [0.6, 0.35, 1, 1]));
+          gl.uniform1f(u.u_intensity, prop(v, l, 'intensity', 1));
+          gl.uniform1f(u.u_angle, (num(l.angle, 0) + v.rotation) * Math.PI / 180);
+          gl.uniform1f(u.u_haze, clamp(num(l.haze, 0.18), 0, 1));
           gl.uniform1f(u.u_opacity, v.opacity);
         });
       } else if (l.type === 'electric') {
