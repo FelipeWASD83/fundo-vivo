@@ -130,7 +130,9 @@
             "noise",
             "spectrum",
             "cube",
-            "tendrils"
+            "tendrils",
+            "water",
+            "electric"
           ]
         },
         "name": {
@@ -475,6 +477,85 @@
               "type": "number"
             }
           }
+        },
+        "horizon": {
+          "type": "number",
+          "minimum": 0.05
+        },
+        "choppy": {
+          "type": "number"
+        },
+        "detail": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24
+        },
+        "lightHeight": {
+          "type": "number"
+        },
+        "deep": {
+          "$ref": "#/$defs/color"
+        },
+        "crest": {
+          "$ref": "#/$defs/color"
+        },
+        "sky": {
+          "$ref": "#/$defs/color"
+        },
+        "gloss": {
+          "type": "number",
+          "minimum": 1
+        },
+        "sand": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sandSize": {
+          "type": "number"
+        },
+        "fade": {
+          "type": "number"
+        },
+        "reach": {
+          "type": "number"
+        },
+        "arcs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24
+        },
+        "flicker": {
+          "type": "number"
+        },
+        "roughness": {
+          "type": "number"
+        },
+        "wander": {
+          "type": "number"
+        },
+        "core": {
+          "$ref": "#/$defs/color"
+        },
+        "colorBy": {
+          "enum": [
+            "random",
+            "x"
+          ]
+        },
+        "colorShift": {
+          "type": "integer"
+        },
+        "tips": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "yaw": {
+          "type": "number"
+        },
+        "pitch": {
+          "type": "number"
         }
       },
       "allOf": [

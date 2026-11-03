@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.6.0 (02/11/2026)
+
+### Novo
+- Camada de **mar**: ondas escuras vistas de lado, com cristas enrugadas que pegam a luz, e um grão de areia opcional na superfície.
+- Camada de **eletricidade**: pontinhos pela tela e raios que saem do mouse para os pontos mais perto e pulam de um para o outro. Sem mouse, a corrente passeia sozinha.
+- Os riscos podem ser pintados pela posição na tela, em faixas de cor que deslizam, e alguns podem ter a ponta branca.
+- O cubo gira de verdade (para os lados, para cima e para baixo) e as faces se iluminam conforme ele vira.
+
+### Corrigido
+- Animar algo que a camada deixou no padrão começava do zero. Por exemplo, as ondas de um wallpaper ficavam retas sem música tocando.
+
 ## 2.5.0 (02/11/2026)
 
 ### Novo

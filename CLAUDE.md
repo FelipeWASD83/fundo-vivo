@@ -152,12 +152,22 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
     polígono e tentáculos são triângulos montados na CPU a cada quadro (`P.flat`). O som chega em 64 faixas
     (`spectrum`), com `level(band)` aceitando nome, número ou `[de, até]`. **O que conta como "ao vivo" tem que bater
     nos dois lados**: `wantsSound` no `vivo.js` e o `realtime` do `Packages.Inspect` (animação `audio`, camada
-    `spectrum`, `audio` em camada, `band` em efeito).
+    `spectrum` ou `electric`, `audio` em camada, `band` em efeito).
+  - **Camadas da 2.6.0**: `water` (mar com perspectiva: soma de ondas `exp(sin - 1)` em que cada uma arrasta as menores,
+    o truque que enruga as cristas; normal pela derivada analítica, sem segunda conta; 60 fps no ultrawide com 17
+    ondas) e `electric` (pontos e raios por deslocamento do ponto médio, triângulos na CPU; segue o mouse pelo
+    `pointer.seen`, que só fica verdadeiro com `mousemove` ou `mx` na foto, então vídeo e foto usam o caminho próprio).
+    O cubo virou 3D de verdade (`yaw`, `pitch`, faces de costas descartadas, blocos ordenados pela profundidade).
+  - **`animate` em propriedade que a camada não escreveu**: o `animated()` marca em `v._fromDefault` e o `prop()` soma o
+    padrão. Até a 2.5.0 partia de 0 (as ondas do Angled Waves ficavam retas sem música). Propriedade nova que pode ser
+    animada sempre lida pelo `prop(v, l, nome, padrão)`.
   - **Ruído pesado**: a inclinação do relevo vem de `dFdx`/`dFdy` do ruído (uma conta por pixel); com três contas a
     fumaça dava 54 fps no ultrawide e com uma deu 71 a 130 (medido com o Rocket League aberto usando 58% da placa).
   - Cópias de teste de 11 wallpapers do Workshop dele em `build\copias\` (fora do git e do repositório público, de
     propósito: recriam o trabalho de outras pessoas, sem nenhum arquivo, código ou logo delas). Medido em 02/11/2026,
-    3440x1440, limite 60: todas entre 59 e 60 fps depois da troca do relevo.
+    3440x1440, limite 60: todas entre 59 e 60 fps depois da troca do relevo; na 2.6.0, Black Waves, SandBlack, Chroma
+    Drencher, Electrico, cubo e Angled Waves refeitos pelo que ele apontou, todos a 59 ou 60. O gerador é um script fora
+    do projeto; o que vale é o `wallpaper.json` de cada pasta.
   - `FundoVivo.exe --vivo-still <vivo> <png> <w> <h> [t] [margem] [som]` desenha um quadro com o mesmo renderizador: é o
     jeito de testar as três proporções sem pôr nada na tela dele. Headless Edge tira a foto antes das imagens
     decodificarem (sai preto); use isso ou o MCP chrome-devtools.

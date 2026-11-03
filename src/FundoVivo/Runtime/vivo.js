@@ -123,13 +123,15 @@
     P.particles = program(HEAD + `in vec2 a; uniform vec2 u_res; uniform float u_s; uniform float u_ph; uniform float u_L;
       uniform int u_preset; uniform float u_seed; uniform float u_size; uniform float u_speed; uniform float u_angle;
       uniform float u_len; uniform vec4 u_cols[6]; uniform int u_ncols; uniform vec4 u_color;
-      uniform vec2 u_offset; out vec2 v_q; out float v_alpha; flat out int v_preset; flat out vec4 v_col;
+      uniform int u_colorX; uniform float u_shift; uniform float u_tips;
+      uniform vec2 u_offset; out vec2 v_q; out float v_alpha; flat out int v_preset; flat out vec4 v_col; flat out float v_tip;
       float h(float n) { return fract(sin(n * 12.9898 + u_seed * 78.233) * 43758.5453); }
       float wraps(float seconds) { return max(1.0, floor(u_L / seconds + 0.5)); }
       void main() {
         float id = float(gl_InstanceID);
         float r1 = h(id * 7.1 + 1.0), r2 = h(id * 7.1 + 2.0), r3 = h(id * 7.1 + 3.0), r4 = h(id * 7.1 + 4.0), r5 = h(id * 7.1 + 5.0), r6 = h(id * 7.1 + 6.0);
         vec2 c; vec2 size; float alpha; float rot = 0.0;
+        v_tip = 0.0;
         v_col = u_ncols > 0 ? u_cols[int(min(float(u_ncols) - 1.0, floor(r5 * float(u_ncols))))] : u_color;
         if (u_preset == 0) {            // rain: thin streaks falling a whole number of times per loop
           float k = wraps(0.9 / (u_speed * (0.7 + 0.6 * r3)));
@@ -169,21 +171,35 @@
           size = vec2(len, u_size * u_s * (0.6 + 0.8 * r6));
           rot = a0;
           alpha = 0.35 + 0.65 * r6;
+          // colour by where the streak is across the screen: the palette as bands that wrap around and slide
+          if (u_colorX == 1 && u_ncols > 0) {
+            float n = float(u_ncols), x = fract(c.x / u_res.x + u_shift) * n;
+            int i0 = int(min(n - 1.0, floor(x)));
+            int i1 = int(mod(float(i0) + 1.0, n));
+            v_col = mix(u_cols[i0], u_cols[i1], smoothstep(0.0, 1.0, fract(x)));
+          }
+          // a few have a white-hot head, the rest stay dim
+          if (u_tips > 0.0) {
+            v_tip = h(id * 7.1 + 8.0) < u_tips ? 1.0 : 0.0;
+            alpha = v_tip > 0.5 ? 0.9 : 0.1 + 0.3 * r6;
+          }
         }
         vec2 local = (a - 0.5) * size;
         local = vec2(cos(rot) * local.x - sin(rot) * local.y, sin(rot) * local.x + cos(rot) * local.y);
         vec2 p = c + local + u_offset;
         v_q = a - 0.5; v_alpha = alpha; v_preset = u_preset;
         gl_Position = vec4(p.x / u_res.x * 2.0 - 1.0, 1.0 - p.y / u_res.y * 2.0, 0.0, 1.0);
-      }`, HEAD + `in vec2 v_q; in float v_alpha; flat in int v_preset; flat in vec4 v_col; uniform float u_opacity; out vec4 o;
+      }`, HEAD + `in vec2 v_q; in float v_alpha; flat in int v_preset; flat in vec4 v_col; flat in float v_tip; uniform float u_opacity; out vec4 o;
       void main() {
         float a;
+        vec3 rgb = v_col.rgb;
+        if (v_tip > 0.5) rgb = mix(rgb, vec3(1.0), smoothstep(0.32, 0.5, v_q.x));
         if (v_preset == 0) a = exp(-pow(v_q.x * 4.0, 2.0)) * smoothstep(0.5, 0.0, abs(v_q.y));
         else if (v_preset == 3) { float r = length(v_q) * 2.0; a = exp(-r * r * 18.0) + 0.35 * exp(-r * r * 3.5); }
         else if (v_preset == 4) a = pow(clamp(v_q.x + 0.5, 0.0, 1.0), 1.6) * exp(-pow(v_q.y * 3.2, 2.0));
         else { float r = length(v_q) * 2.0; a = smoothstep(1.0, 0.25, r); }
         a *= v_alpha * v_col.a * u_opacity;
-        o = vec4(v_col.rgb * a, a);
+        o = vec4(rgb * a, a);
       }`);
 
     // Columns of glyphs falling: a head and a fading trail per column, the glyphs changing a whole number of times per loop.
@@ -270,6 +286,51 @@
         vec4 c = mix(u_col[i0], u_col[i0 + 1], t - float(i0));
         vec3 rgb = c.rgb * (0.35 + 0.75 * lit) + u_shine * pow(lit, 24.0);
         o = vec4(rgb * c.a, c.a) * u_opacity;
+      }`);
+
+    // A sea seen at a grazing angle: sharp-crested waves, each one dragging the smaller ones (that bunches them into
+    // choppy crests), lit by one light, with an optional grain of sand riding on the surface. Every wave turns a whole
+    // number of times per loop.
+    P.water = program(FULL_VS, HEAD + PIXEL + `in vec2 v_uv; uniform vec2 u_res; uniform vec2 u_offset; uniform float u_scale; uniform float u_ph;
+      uniform float u_horizon; uniform float u_angle; uniform float u_spread; uniform float u_height; uniform float u_choppy;
+      uniform float u_speed; uniform int u_iter; uniform float u_seed; uniform vec3 u_light; uniform vec4 u_deep; uniform vec4 u_crest;
+      uniform vec4 u_sky; uniform float u_shine; uniform float u_gloss; uniform float u_sand; uniform float u_sandSize; uniform float u_fade;
+      uniform float u_opacity; out vec4 o;
+      void main() {
+        vec2 p = pixel(v_uv, u_res, u_offset);
+        float yn = clamp(p.y / u_res.y, -0.2, 1.6);
+        float z = 1.0 / (yn + u_horizon);
+        vec2 g = vec2((p.x - 0.5 * u_res.x) / u_res.y * z, z) * (1.0 + u_horizon) * u_res.y / u_scale;
+        float H = 0.0, A = 1.0, f = 1.0, sumA = 0.0;
+        vec2 dH = vec2(0.0);
+        for (int i = 0; i < 24; i++) {
+          if (i >= u_iter) break;
+          float a = u_angle + (fract(float(i) * 0.618034 + u_seed) - 0.5) * 2.0 * u_spread;
+          vec2 d = vec2(cos(a), sin(a));
+          float cyc = max(1.0, floor(u_speed * sqrt(f) + 0.5));
+          float x = dot(d, g) * f - 6.2831853 * cyc * u_ph + float(i) * 1.7;
+          float w = exp(sin(x) - 1.0), dw = w * cos(x);
+          H += A * w; sumA += A;
+          dH += A * dw * f * d;
+          g -= d * dw * A * 0.38 * u_choppy;
+          f *= 1.18; A *= 0.82;
+        }
+        H /= sumA; dH /= sumA;
+        vec3 n = normalize(vec3(-dH.x * u_height, 1.0, -dH.y * u_height));
+        vec3 view = normalize(vec3(0.0, mix(0.2, 0.75, clamp(yn, 0.0, 1.0)), -1.0));
+        float diff = max(dot(n, u_light), 0.0);
+        float spec = pow(max(dot(n, normalize(u_light + view)), 0.0), u_gloss);
+        float fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, view), 0.0), 5.0);
+        vec3 rgb = mix(u_deep.rgb, u_crest.rgb, clamp(H * 1.3, 0.0, 1.0)) * (0.35 + 0.65 * diff) + u_sky.rgb * fres + u_shine * spec;
+        if (u_sand > 0.0) {
+          // grains stuck on the moving surface: brighter where the light hits, a few glinting
+          float s = hsh(floor(g * u_scale / u_sandSize));
+          rgb *= 1.0 + u_sand * (s - 0.5) * 2.0;
+          rgb += u_sand * 0.6 * step(0.985, s) * (0.3 + diff);
+        }
+        // far away the waves get too small to see: fade into the deep colour (and no shimmer at the top)
+        rgb = mix(rgb, u_deep.rgb, clamp((z * (1.0 + u_horizon) - 1.0) * u_fade, 0.0, 1.0));
+        o = vec4(rgb, 1.0) * u_opacity;
       }`);
 
     // Bars of the sound spectrum, in a line or around a circle, rounded, with a colour gradient across them.
@@ -496,10 +557,10 @@
     return Math.max(1, Math.round(LOOP / Math.max(0.05, Math.abs(p)))) * (p < 0 ? -1 : 1);
   }
 
-  /** Everything that only makes sense live: sound, in any of the forms it can be asked for. */
+  /** Everything that only makes sense live: sound, in any of the forms it can be asked for, and the mouse. */
   function wantsSound(l) {
     if (l.animate.some((a) => a.type === 'audio')) return true;
-    if (l.type === 'spectrum') return true;
+    if (l.type === 'spectrum' || l.type === 'electric') return true;
     return l.audio != null && typeof l.audio === 'object';
   }
 
@@ -554,7 +615,11 @@
     const v = { x: num(l.x, 0), y: num(l.y, 0), scale: num(l.scale, 1), rotation: num(l.rotation, 0), opacity: num(l.opacity, 1) };
     for (const a of l.animate) {
       if (typeof a.property !== 'string') continue;
-      if (!(a.property in v)) v[a.property] = num(l[a.property], 0);
+      if (!(a.property in v)) {
+        // a property the layer leaves at its default: only the change is known here, prop() adds the default to it
+        if (typeof l[a.property] !== 'number') (v._fromDefault ??= new Set()).add(a.property);
+        v[a.property] = num(l[a.property], 0);
+      }
       const amount = num(a.amount, a.type === 'spin' ? 1 : 0);
       let d = 0;
       if (a.type === 'oscillate') d = amount * Math.sin(TAU * (tl / a._period + num(a.phase, 0)));
@@ -569,7 +634,8 @@
     v.opacity = clamp(v.opacity, 0, 1);
     return v;
   }
-  const prop = (v, l, name, fallback) => num(v[name], num(l[name], fallback));
+  const prop = (v, l, name, fallback) =>
+    v._fromDefault?.has(name) ? fallback + v[name] : num(v[name], num(l[name], fallback));
 
   // ------------------------------------------------------------------ text, drawn once by the browser into a texture
   const textCache = new Map();
@@ -676,43 +742,148 @@
   const shade = (c, k) => [Math.min(1, c[0] * k), Math.min(1, c[1] * k), Math.min(1, c[2] * k), c[3]];
 
   /**
-   * An isometric cube of n x n x n blocks seen from a corner (top, left and right faces). Each block on the three
-   * faces can stand out along its face, pushed by one band of the sound, the "visualizer cube".
+   * A cube of n x n x n blocks, turned by `yaw` and `pitch` (degrees; 45 and 35.26 is the corner-on isometric view)
+   * and drawn flat (orthographic). Each block on the faces turned to the viewer can stand out along its face, pushed
+   * by one band of the sound: the "visualizer cube". Faces are lit by one light, so they shade as it turns.
    */
   function drawCube(l, v, cx, cy, S, tl) {
     const n = clamp(Math.round(num(l.cells, 4)), 1, 8);
-    const unit = prop(v, l, 'size', 0.4) * S * v.scale / n / 1.73;
+    const unit = prop(v, l, 'size', 0.4) * S * v.scale / n / 1.41;
     const gap = clamp(num(l.gap, 0.06), 0, 0.4);
     const top = color(l.top || '#f4b6d8'), left = color(l.left || '#c77dd6'), right = color(l.right || '#e895c0');
     const push = num(l.audio?.amount, 0);
-    const iso = (x, y, z) => [cx + (x - z) * 0.8660254 * unit, cy + (x + z) * 0.5 * unit - y * unit];
+    const yaw = prop(v, l, 'yaw', 45) * Math.PI / 180, pitch = prop(v, l, 'pitch', 35.264) * Math.PI / 180;
+    const roll = v.rotation * Math.PI / 180;
+    const cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch), cr = Math.cos(roll), sr = Math.sin(roll);
+    // yaw around y, then pitch around x; +z comes out of the screen
+    const turn = (x, y, z) => {
+      const x1 = x * cyw - z * syw, z1 = x * syw + z * cyw;
+      const y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
+      return [x1 * cr - y2 * sr, x1 * sr + y2 * cr, z2];
+    };
+    const project = (p) => { const q = turn(...p); return [cx + q[0] * unit, cy - q[1] * unit]; };
+    const light = (() => { const L = [-0.35, 0.75, 0.6], m = Math.hypot(...L); return L.map((c) => c / m); })();
+    const lit = (c, nrm) => shade(c, 0.62 + 0.5 * Math.max(0, nrm[0] * light[0] + nrm[1] * light[1] + nrm[2] * light[2]));
+    // the six faces of a box: outward normal, its colour, its four corners
+    const faces = (x0, y0, z0, x1, y1, z1) => [
+      [[0, 1, 0], top, [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]],
+      [[0, -1, 0], top, [[x0, y0, z0], [x0, y0, z1], [x1, y0, z1], [x1, y0, z0]]],
+      [[1, 0, 0], right, [[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]]],
+      [[-1, 0, 0], right, [[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]]],
+      [[0, 0, 1], left, [[x0, y0, z1], [x0, y1, z1], [x1, y1, z1], [x1, y0, z1]]],
+      [[0, 0, -1], left, [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]]],
+    ];
+    const drawBox = (box, dim) => {
+      for (const [nrm, c, pts] of faces(...box)) {
+        const tn = turn(...nrm);
+        if (tn[2] <= 0) continue;   // facing away
+        pushQuad(pts.flatMap(project), shade(lit(c, tn), dim));
+      }
+    };
+    const h = n / 2, lo = gap / 2, hi = 1 - gap / 2;
+    drawBox([-h, -h, -h, h, h, h], 0.6);
+    // blocks on the faces turned to the viewer, far ones first
     const boxes = [];
     let band = 0;
-    for (let a = 0; a < n; a++)
-      for (let b = 0; b < n; b++)
-        for (const face of ['top', 'left', 'right']) {
-          const e = push * level(Math.floor((band++ * 7) % 64)) * n;
-          const lo = gap / 2, hi = 1 - gap / 2;
-          // block centred on the cube (from -n/2 to n/2), on its face, grown outward by e
-          let box;
-          if (face === 'top') box = [a + lo - n / 2, n / 2, b + lo - n / 2, a + hi - n / 2, n / 2 + 0.02 + e, b + hi - n / 2];
-          else if (face === 'right') box = [n / 2, a + lo - n / 2, b + lo - n / 2, n / 2 + 0.02 + e, a + hi - n / 2, b + hi - n / 2];
-          else box = [a + lo - n / 2, b + lo - n / 2, n / 2, a + hi - n / 2, b + hi - n / 2, n / 2 + 0.02 + e];
-          boxes.push(box);
+    for (const [axis, sign] of [[1, 1], [1, -1], [0, 1], [0, -1], [2, 1], [2, -1]]) {
+      const nrm = [0, 0, 0]; nrm[axis] = sign;
+      if (turn(...nrm)[2] <= 0) { band += n * n; continue; }
+      const [ua, ub] = [0, 1, 2].filter((k) => k !== axis);
+      for (let a = 0; a < n; a++)
+        for (let b = 0; b < n; b++) {
+          const e = push * level(Math.floor((band++ * 5) % 44)) * n;
+          const p0 = [0, 0, 0], p1 = [0, 0, 0];
+          p0[ua] = a + lo - h; p1[ua] = a + hi - h;
+          p0[ub] = b + lo - h; p1[ub] = b + hi - h;
+          if (sign > 0) { p0[axis] = h; p1[axis] = h + 0.02 + e; } else { p0[axis] = -h - 0.02 - e; p1[axis] = -h; }
+          const mid = turn((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2);
+          boxes.push([mid[2], [...p0, ...p1]]);
         }
-    // the big cube under the blocks
-    const h = n / 2;
-    const faceQuad = (pts, c) => pushQuad(pts.flatMap((p) => iso(...p)), c);
-    faceQuad([[-h, h, -h], [h, h, -h], [h, h, h], [-h, h, h]], shade(top, 0.55));
-    faceQuad([[h, h, -h], [h, -h, -h], [h, -h, h], [h, h, h]], shade(right, 0.55));
-    faceQuad([[-h, h, h], [h, h, h], [h, -h, h], [-h, -h, h]], shade(left, 0.55));
-    // back to front for this view (from +x, +y, +z)
-    boxes.sort((p, q) => (p[0] + p[1] + p[2] + p[3] + p[4] + p[5]) - (q[0] + q[1] + q[2] + q[3] + q[4] + q[5]));
-    for (const [x0, y0, z0, x1, y1, z1] of boxes) {
-      faceQuad([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], top);
-      faceQuad([[x1, y1, z0], [x1, y0, z0], [x1, y0, z1], [x1, y1, z1]], right);
-      faceQuad([[x0, y1, z1], [x1, y1, z1], [x1, y0, z1], [x0, y0, z1]], left);
     }
+    boxes.sort((p, q) => p[0] - q[0]);
+    for (const [, box] of boxes) drawBox(box, 1);
+  }
+
+  /** A soft dot as a fan: full in the middle, gone at the rim. */
+  function pushDot(x, y, r, c) {
+    const rim = [c[0], c[1], c[2], 0];
+    for (let k = 0; k < 10; k++) {
+      const a0 = k / 10 * TAU, a1 = (k + 1) / 10 * TAU;
+      pushTri(x, y, x + Math.cos(a0) * r, y + Math.sin(a0) * r, x + Math.cos(a1) * r, y + Math.sin(a1) * r, c, rim, rim);
+    }
+  }
+  /** A line through the points, `w` to each side, full on the centre line and gone at the edges. */
+  function pushLine(pts, w, c) {
+    const side = [c[0], c[1], c[2], 0];
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [x0, y0] = pts[k], [x1, y1] = pts[k + 1];
+      const len = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / len * w, ny = (x1 - x0) / len * w;
+      for (const s of [1, -1]) {
+        pushTri(x0, y0, x1, y1, x0 + nx * s, y0 + ny * s, c, c, side);
+        pushTri(x1, y1, x1 + nx * s, y1 + ny * s, x0 + nx * s, y0 + ny * s, c, side, side);
+      }
+    }
+  }
+  /** A lightning path between two points by midpoint displacement; the same seed gives the same bolt. */
+  function boltPoints(x0, y0, x1, y1, seed, rough) {
+    let pts = [[x0, y0], [x1, y1]];
+    let disp = Math.hypot(x1 - x0, y1 - y0) * rough;
+    for (let lvl = 0; lvl < 5; lvl++) {
+      const next = [pts[0]];
+      for (let k = 0; k < pts.length - 1; k++) {
+        const [ax, ay] = pts[k], [bx, by] = pts[k + 1];
+        const len = Math.hypot(bx - ax, by - ay) || 1, off = (hash(seed, lvl, k) - 0.5) * 2 * disp;
+        next.push([(ax + bx) / 2 - (by - ay) / len * off, (ay + by) / 2 + (bx - ax) / len * off], pts[k + 1]);
+      }
+      pts = next;
+      disp *= 0.55;
+    }
+    return pts;
+  }
+
+  /**
+   * Dots scattered over the screen; the current follows the mouse: bolts jump from the cursor to the nearest dots and
+   * on from each one to its neighbour, a new shape `flicker` times a second. With no mouse (a video, a still) the
+   * current wanders on a loop of its own.
+   */
+  function drawElectric(l, v, S, BX, BY, BW, BH, offX, offY, tl, ph) {
+    const count = clamp(Math.round(num(l.count, 120) * BW * BH / (1920 * 1080)), 1, 2000);
+    const col = color(l.color || '#8fd0ff'), core = color(l.core || '#ffffff');
+    const boost = 1 + num(l.audio?.amount, 0) * level(l.audio?.band ?? 'bass');
+    const reach = prop(v, l, 'reach', 0.22) * S * boost;
+    const dotR = num(l.size, 0.004) * S;
+    let fx, fy;
+    if (pointer.seen) { fx = (pointer.tx * 0.5 + 0.5) * canvas.width; fy = (pointer.ty * 0.5 + 0.5) * canvas.height; }
+    else { fx = BX + BW * (0.5 + 0.32 * Math.sin(TAU * ph)); fy = BY + BH * (0.5 + 0.28 * Math.sin(TAU * 2 * ph + 1)); }
+    const wob = num(l.wander, 0.01) * S;
+    const nodes = [];
+    for (let k = 0; k < count; k++) {
+      const x = BX + hash(k, 21) * BW + offX + wob * Math.sin(TAU * ((1 + (k % 3)) * ph + hash(k, 23)));
+      const y = BY + hash(k, 22) * BH + offY + wob * Math.cos(TAU * ((1 + (k % 2)) * ph + hash(k, 24)));
+      nodes.push({ x, y, d: Math.hypot(x - fx, y - fy) });
+    }
+    for (const n of nodes) {
+      const near = clamp(1 - n.d / (reach * 1.6), 0, 1);
+      pushDot(n.x, n.y, dotR * (1 + near * 1.5), [col[0], col[1], col[2], col[3] * (0.25 + 0.75 * near)]);
+    }
+    const flick = Math.floor(tl * Math.max(1, num(l.flicker, 16)));
+    const close = nodes.filter((n) => n.d < reach).sort((p, q) => p.d - q.d).slice(0, clamp(Math.round(num(l.arcs, 7)), 1, 24));
+    const w = num(l.width, 0.0016) * S, rough = num(l.roughness, 0.22);
+    close.forEach((n, k) => {
+      const fade = 1 - n.d / reach, on = 0.55 + 0.45 * hash(flick, k, 3);
+      const pts = boltPoints(fx, fy, n.x, n.y, flick * 97 + k, rough);
+      pushLine(pts, w * 3, [col[0], col[1], col[2], 0.35 * fade * on]);
+      pushLine(pts, w, [core[0], core[1], core[2], fade * on]);
+      // on to the dot's nearest neighbour, so the current runs from dot to dot
+      let best = null, bd = reach * 0.55;
+      for (const m of nodes) { if (m === n) continue; const dd = Math.hypot(m.x - n.x, m.y - n.y); if (dd < bd) { bd = dd; best = m; } }
+      if (best) {
+        const bp = boltPoints(n.x, n.y, best.x, best.y, flick * 97 + k + 50, rough);
+        pushLine(bp, w * 2.4, [col[0], col[1], col[2], 0.25 * fade * on]);
+        pushLine(bp, w * 0.8, [core[0], core[1], core[2], 0.6 * fade * on]);
+      }
+    });
+    if (close.length) pushDot(fx, fy, dotR * 3, [core[0], core[1], core[2], 0.8]);
   }
 
   /** A glowing body with tendrils curling behind it, each one a strip thinning to its tip. */
@@ -748,7 +919,7 @@
   }
 
   // ------------------------------------------------------------------ drawing one frame
-  const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+  const pointer = { x: 0, y: 0, tx: 0, ty: 0, seen: false };
   let lastDraw = 0;
 
   function draw(t) {
@@ -898,6 +1069,9 @@
         gl.uniform1f(u.u_len, prop(v, l, 'length', 0.35));
         gl.uniform4fv(u.u_cols, pal.data);
         gl.uniform1i(u.u_ncols, pal.count);
+        gl.uniform1i(u.u_colorX, l.colorBy === 'x' ? 1 : 0);
+        gl.uniform1f(u.u_shift, Math.round(num(l.colorShift, 0)) * ph);   // whole slides per loop
+        gl.uniform1f(u.u_tips, clamp(num(l.tips, 0), 0, 1));
         gl.uniform2f(u.u_offset, offX, offY);
         gl.uniform4fv(u.u_color, color(l.color, l.preset === 'fireflies' ? [1, 0.85, 0.4, 1] : [1, 1, 1, 1]));
         gl.uniform1f(u.u_opacity, v.opacity);
@@ -968,6 +1142,38 @@
           gl.uniform1f(u.u_shine, prop(v, l, 'shine', 0));
           gl.uniform1f(u.u_opacity, v.opacity);
         });
+      } else if (l.type === 'water') {
+        // light: an azimuth (0 = straight ahead, into the distance) and an elevation, in degrees
+        const az = num(l.light, 0) * Math.PI / 180, el = num(l.lightHeight, 25) * Math.PI / 180;
+        layerPass(P.water, (u) => {
+          gl.uniform2f(u.u_res, CW, CH);
+          gl.uniform2f(u.u_offset, offX, offY);
+          gl.uniform1f(u.u_scale, Math.max(2, prop(v, l, 'size', 0.12) * S * v.scale / TAU));
+          gl.uniform1f(u.u_ph, ph);
+          gl.uniform1f(u.u_horizon, Math.max(0.05, num(l.horizon, 0.6)));
+          gl.uniform1f(u.u_angle, (90 + num(l.angle, 0)) * Math.PI / 180);
+          gl.uniform1f(u.u_spread, clamp(num(l.spread, 50), 0, 180) * Math.PI / 180);
+          gl.uniform1f(u.u_height, prop(v, l, 'height', 0.7));
+          gl.uniform1f(u.u_choppy, prop(v, l, 'choppy', 1));
+          gl.uniform1f(u.u_speed, Math.max(0, prop(v, l, 'speed', 2)));
+          gl.uniform1i(u.u_iter, clamp(Math.round(num(l.detail, 14)), 1, 24));
+          gl.uniform1f(u.u_seed, hash(num(l.seed, i + 1), 77));
+          gl.uniform3f(u.u_light, Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+          gl.uniform4fv(u.u_deep, color(l.deep, [0.02, 0.02, 0.02, 1]));
+          gl.uniform4fv(u.u_crest, color(l.crest, [0.12, 0.12, 0.12, 1]));
+          gl.uniform4fv(u.u_sky, color(l.sky, [0.15, 0.15, 0.15, 1]));
+          gl.uniform1f(u.u_shine, prop(v, l, 'shine', 0.5));
+          gl.uniform1f(u.u_gloss, Math.max(1, num(l.gloss, 40)));
+          gl.uniform1f(u.u_sand, clamp(prop(v, l, 'sand', 0), 0, 1));
+          gl.uniform1f(u.u_sandSize, Math.max(1, num(l.sandSize, 0.0015) * S));
+          gl.uniform1f(u.u_fade, num(l.fade, 0.6));
+          gl.uniform1f(u.u_opacity, v.opacity);
+        });
+      } else if (l.type === 'electric') {
+        if (!l.blend) setBlend('add');
+        flatCount = 0;
+        drawElectric(l, v, S, BX, BY, BW, BH, offX, offY, tl, ph);
+        drawFlat(flatVerts, flatCount, CW, CH, v.opacity);
       } else if (l.type === 'spectrum') {
         const n = clamp(Math.round(num(l.bars, 48)), 2, 256);
         const circle = l.shape === 'circle';
@@ -1077,10 +1283,12 @@
     window.addEventListener('mousemove', (e) => {
       pointer.tx = clamp(e.clientX / Math.max(1, window.innerWidth) * 2 - 1, -1, 1);
       pointer.ty = clamp(e.clientY / Math.max(1, window.innerHeight) * 2 - 1, -1, 1);
+      pointer.seen = true;
     });
     if (STILL !== null) {
-      pointer.x = clamp(+params.get('mx') || 0, -1, 1);
-      pointer.y = clamp(+params.get('my') || 0, -1, 1);
+      pointer.x = pointer.tx = clamp(+params.get('mx') || 0, -1, 1);
+      pointer.y = pointer.ty = clamp(+params.get('my') || 0, -1, 1);
+      pointer.seen = params.has('mx');
       const once = () => { try { draw(STILL); } catch (e) { post({ type: 'error', message: String(e) }); } };
       once();
       window.addEventListener('resize', () => requestAnimationFrame(once));

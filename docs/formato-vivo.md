@@ -117,11 +117,35 @@ Comum a todas: `type`, `name` (opcional), `anchor`, `x`, `y`, `opacity` (0 a 1),
   (`shape: "circle"`, com `radius`). `bars`, `from` e `to` (que faixas usar, 0 a 63), `barWidth`, `height` (altura
   máxima), `minHeight`, `gain`, `colors` (gradiente da primeira à última barra). Sempre toca ao vivo.
 - **`shape` com `shape: "polygon"`**: `points` (lista de `[x, y]` em `s` em volta da âncora), preenchido. Forma convexa.
-- **`cube`**: um cubo isométrico de `cells` x `cells` x `cells` blocos (`size` em `s`, `gap`, cores `top`, `left` e
-  `right`). Com `audio: { "amount": 0.1 }`, cada bloco das faces cresce com uma faixa do som.
+- **`cube`**: um cubo de `cells` x `cells` x `cells` blocos (`size` em `s`, `gap`, cores `top`, `left` e `right`),
+  girado por `yaw` e `pitch` (graus; o padrão, 45 e 35,26, é a vista de quina) e por `rotation`; as faces se iluminam
+  conforme giram. Com `audio: { "amount": 0.1 }`, cada bloco das faces viradas para a frente cresce com uma faixa do som.
 - **`tendrils`**: um corpo com tentáculos curvando atrás dele. `count`, `segments`, `length` e `width` (em `s`), `curl`,
   `waves` (quantas ondas por loop), `heading` e `spread` (para onde apontam), `color`; `audio: { "band": "bass",
   "amount": 0.6 }` estica os tentáculos com o som.
+
+### Camadas novas (2.6.0)
+
+- **`water`**: um mar visto de lado, com perspectiva: ondas de crista fina, cada uma arrastando as menores (é o que
+  enruga as cristas), iluminadas por uma luz. `size` (tamanho das ondas maiores, em `s`, na parte de baixo da tela),
+  `horizon` (quanto o horizonte fica acima da tela: pouco = perspectiva forte, muito = visto de cima), `angle` (para
+  onde as ondas correm, 0 = vindo na direção de quem olha) e `spread` (quanto as direções variam, em graus), `height`
+  (quanto o relevo aparece), `choppy` (o quanto enruga), `speed` (voltas por loop), `detail` (quantas ondas somadas, 1
+  a 24), `light` e `lightHeight` (direção e altura da luz, em graus), cores `deep` (o fundo), `crest` (as cristas) e
+  `sky` (o reflexo), `shine` e `gloss` (o brilho da luz e o quanto ele é concentrado), `sand` (0 a 1: grão de areia
+  colado na superfície) e `sandSize` (em `s`), `fade` (some no fundo lá longe). Opaca: cobre o que estiver embaixo.
+- **`electric`**: pontinhos espalhados pela tela e uma corrente que **segue o mouse**: raios saem do cursor para os
+  pontos mais perto e pulam de cada um para o vizinho, trocando de forma `flicker` vezes por segundo. `count` (pontos
+  numa tela Full HD; cresce com a área), `reach` (até onde a corrente alcança, em `s`), `arcs` (quantos raios), `size`
+  (dos pontos), `width` e `roughness` (dos raios), `wander` (quanto os pontos flutuam), `color` e `core` (a cor do
+  brilho e do miolo). `audio: { "band": "bass", "amount": 0.5 }` aumenta o alcance com o som. Sem mouse (vídeo, foto),
+  a corrente passeia sozinha num caminho que fecha o loop. Sempre toca ao vivo.
+- **Riscos coloridos pela posição** (`particles` com `preset: "streaks"`): `colorBy: "x"` pinta cada risco pela posição
+  dele na tela, com as `colors` em faixas largas que dão a volta; `colorShift` (número inteiro) faz as faixas
+  deslizarem essa quantidade de voltas por loop; `tips` (0 a 1) é a parte dos riscos que tem a ponta branca, e os outros
+  ficam fracos.
+- **Animar o que ficou no padrão**: animar uma propriedade que a camada não escreveu (o `yaw` do cubo, a `amplitude`
+  da onda) parte do valor padrão dela. Até a 2.5.0 partia de 0.
 
 ## Animações (`animate`)
 
@@ -177,8 +201,8 @@ Ao pôr um `.vivo` num monitor, o Fundo Vivo decide sozinho:
 
 `glow` e `rays` aceitam também `band` e `bandAmount`: o brilho aumenta com o som.
 
-- **Não usa nada que dependa do momento** (a animação `audio`, uma camada `spectrum`, um `audio` em camada e um `band` em
-  efeito dependem): o loop é **renderizado quadro a
+- **Não usa nada que dependa do momento** (a animação `audio`, uma camada `spectrum` ou `electric`, um `audio` em camada e
+  um `band` em efeito dependem): o loop é **renderizado quadro a
   quadro** no tamanho daquele monitor e toca como vídeo, gastando o que um vídeo gasta. Com `parallax`, o vídeo sai um
   pouco maior e anda com o mouse (o mesmo esquema das cenas: o vídeo inteiro anda junto, sem a profundidade de cada
   camada).
