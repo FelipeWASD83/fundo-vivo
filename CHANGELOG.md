@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.1 (03/11/2026)
+
+### Mudou
+- A Maré noturna foi refeita: agora tem céu, lua e horizonte em cima e o mar embaixo, com o reflexo da lua formado pelo brilho das próprias ondas num caminho de luz. Antes o mar ocupava a tela toda e parecia pedra.
+
 ## 2.8.0 (03/11/2026)
 
 ### Novo
