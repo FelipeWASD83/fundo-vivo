@@ -181,7 +181,10 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
     aproximadas foram gravadas no próprio Wallpaper Engine pelo conversor, numa casa de teste (`--set principal
     "<nome>"` com `FUNDOVIVO_HOME=build\test-home`, duração 12 s) e ajustadas contra a gravação: a luz do SandBlack foi
     ajustada por mínimos quadrados bloco a bloco (ambiente 0,74, intensidade 2,55), e o cubo e o Neon mudaram de
-    tamanho, cor e velocidade (a prévia do Neon era acelerada). Ajustes por cima do gerador: `overrides.py` ao lado dele. Medido em 02/11/2026,
+    tamanho, cor e velocidade (a prévia do Neon era acelerada). Na 2.8.2 o Chroma passou a ter o véu do original (o
+    sorteio de seno das partículas amontoava milhares de linhas nas mesmas colunas; trocado por um hash inteiro) e pulsa
+    com o grave; o SandBlack ganhou desfoque, a chuva inclinada desenhada por cima dos efeitos (`overEffects`) e a foto
+    1% maior (a última coluna dela é clara). Ajustes por cima do gerador: `overrides.py` ao lado dele. Medido em 02/11/2026,
     3440x1440, limite 60: todas entre 59 e 60 fps depois da troca do relevo; na 2.6.0, Black Waves, SandBlack, Chroma
     Drencher, Electrico, cubo e Angled Waves refeitos pelo que ele apontou, todos a 59 ou 60. O gerador é um script fora
     do projeto; o que vale é o `wallpaper.json` de cada pasta.

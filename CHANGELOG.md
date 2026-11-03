@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.8.2 (03/11/2026)
+
+### Novo
+- Uma camada pode ser desenhada depois dos efeitos de tela, sem ser borrada nem ondulada por eles (chuva nítida sobre uma cena desfocada).
+
+### Corrigido
+- Com muitas partículas, elas se amontoavam nas mesmas colunas e deixavam faixas vazias; agora se espalham por igual.
+- A Cortina boreal ficou com a quantidade de luz que tinha antes dessa correção.
+
 ## 2.8.1 (03/11/2026)
 
 ### Mudou

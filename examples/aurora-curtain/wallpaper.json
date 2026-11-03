@@ -48,7 +48,7 @@
       "type": "particles",
       "preset": "streaks",
       "angle": 90,
-      "density": 5,
+      "density": 9,
       "length": 0.55,
       "lengthSpread": 0.6,
       "profile": "flat",

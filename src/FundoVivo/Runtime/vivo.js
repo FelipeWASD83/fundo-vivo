@@ -158,7 +158,12 @@
       }
       uniform vec2 u_offset; out vec2 v_q; out float v_alpha; flat out int v_preset; flat out vec4 v_col; flat out float v_tip;
       flat out vec2 v_size;
-      float h(float n) { return fract(sin(n * 12.9898 + u_seed * 78.233) * 43758.5453); }
+      // an integer hash: the sine one lost precision past a few thousand particles and piled them into the same columns
+      float h(float n) {
+        uint x = uint(n * 64.0 + 0.5) ^ (uint(u_seed * 1009.0) * 2654435769u);
+        x ^= x >> 16; x *= 2246822519u; x ^= x >> 13; x *= 3266489917u; x ^= x >> 16;
+        return float(x) / 4294967295.0;
+      }
       float wraps(float seconds) { return max(1.0, floor(u_L / seconds + 0.5)); }
       void main() {
         float id = float(gl_InstanceID);
@@ -1135,7 +1140,8 @@
     gl.clearColor(bg[0], bg[1], bg[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    W.layers.forEach((l, i) => {
+    // layers marked `overEffects` are drawn after the effects, untouched by them (crisp rain over a blurred scene)
+    const drawLayer = (l, i) => {
       l.__id = l.__id ?? i;
       const v = animated(l, tl);
       if (v.opacity <= 0) return;
@@ -1487,7 +1493,8 @@
         drawTendrils(l, v, ax + offX, ay + offY, S, ph);
         drawFlat(flatVerts, flatCount, CW, CH, v.opacity);
       }
-    });
+    };
+    W.layers.forEach((l, i) => { if (!l.overEffects) drawLayer(l, i); });
 
     // post effects, ping-ponging between the two full targets
     let src = T.a, dst = T.b;
@@ -1575,6 +1582,10 @@
         const amt = num(e.amount, 0.002) + (e.band != null ? num(e.bandAmount, 0.01) * level(e.band) : 0);
         full(P.chroma, (u) => { tex(0, src); gl.uniform1i(u.u_tex, 0); gl.uniform1f(u.u_amount, amt); }, dst); swap();
       }
+    }
+    if (W.layers.some((l) => l.overEffects)) {
+      bindTarget(src);
+      W.layers.forEach((l, i) => { if (l.overEffects) drawLayer(l, i); });
     }
     // live: onto the screen; rendering: the host reads the last target straight back
     if (MODE === 'live') full(P.copy, (u) => { tex(0, src); gl.uniform1i(u.u_tex, 0); }, null);

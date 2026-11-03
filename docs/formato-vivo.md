@@ -187,6 +187,8 @@ Comum a todas: `type`, `name` (opcional), `anchor`, `x`, `y`, `opacity` (0 a 1),
 - **Cubo**: `light: [x, y, z]` (a direção da luz vista da câmera: x para a direita, y para cima, z para quem olha) e
   `coreShade` (0 a 1, o tom do cubo de dentro, que aparece entre os blocos).
 - O efeito `ripple` espelha a imagem nas bordas, em vez de esticar a última fileira.
+- `overEffects: true` numa camada (2.8.2): ela é desenhada depois dos `effects`, por cima do resultado, sem passar por
+  eles.
 
 ## Animações (`animate`)
 
