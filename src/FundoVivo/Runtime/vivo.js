@@ -149,6 +149,13 @@
       uniform int u_preset; uniform float u_seed; uniform float u_size; uniform float u_speed; uniform float u_angle;
       uniform float u_len; uniform vec4 u_cols[6]; uniform int u_ncols; uniform vec4 u_color;
       uniform int u_colorX; uniform float u_shift; uniform float u_tips; uniform float u_spread; uniform vec2 u_thick; uniform float u_lspread;
+      uniform vec4 u_setA[5]; uniform int u_nA; uniform vec4 u_setB[5]; uniform int u_nB; uniform float u_setMix;
+      vec4 drawnColour(vec4 s[5], int n, float x) {
+        if (n < 2) return s[0];
+        float f = clamp(x, 0.0, 1.0) * float(n - 1);
+        int i = int(min(floor(f), float(n - 2)));
+        return mix(s[i], s[i + 1], smoothstep(0.0, 1.0, f - float(i)));
+      }
       uniform vec2 u_offset; out vec2 v_q; out float v_alpha; flat out int v_preset; flat out vec4 v_col; flat out float v_tip;
       flat out vec2 v_size;
       float h(float n) { return fract(sin(n * 12.9898 + u_seed * 78.233) * 43758.5453); }
@@ -198,7 +205,9 @@
           rot = a0;
           alpha = 0.35 + 0.65 * r6;
           // colour by where the streak is across the screen: the palette as bands that wrap around and slide
-          if (u_colorX == 1 && u_ncols > 0) {
+          // or a gradient across the screen from a few drawn colours, fading over to another draw now and then
+          if (u_colorX == 2) v_col = mix(drawnColour(u_setA, u_nA, c.x / u_res.x), drawnColour(u_setB, u_nB, c.x / u_res.x), u_setMix);
+          else if (u_colorX == 1 && u_ncols > 0) {
             float n = float(u_ncols), x = fract(c.x / u_res.x + u_shift) * n;
             int i0 = int(min(n - 1.0, floor(x)));
             int i1 = int(mod(float(i0) + 1.0, n));
@@ -471,7 +480,9 @@
       void main() {
         vec3 n1 = texture(u_normal, (v_uv + u_drift.xy) * u_tiles).xyz * 2.0 - 1.0;
         vec3 n2 = texture(u_normal, (v_uv * 1.333 + u_drift.zw) * u_tiles).xyz * 2.0 - 1.0;
-        o = texture(u_tex, v_uv + normalize(vec3(n1.xy + n2.xy, n1.z)).xy * u_amount);
+        // mirrored at the edges: clamped, the edge row would smear in streaks where the frame is bright
+        vec2 q = v_uv + normalize(vec3(n1.xy + n2.xy, n1.z)).xy * u_amount;
+        o = texture(u_tex, 1.0 - abs(1.0 - abs(q)));
       }`);
 
     // Barrel (amount < 0) or pincushion lens, worked out in a frame of its own aspect that covers the screen
@@ -849,7 +860,9 @@
       const f = camD > 0 ? camD / Math.max(0.1, camD - q[2]) : 1;
       return [cx + q[0] * unit * f, cy - q[1] * unit * f];
     };
-    const light = (() => { const L = [-0.35, 0.75, 0.6], m = Math.hypot(...L); return L.map((c) => c / m); })();
+    // the light's direction as seen from the camera (x right, y up, z towards the viewer)
+    const light = (() => { const L = Array.isArray(l.light) && l.light.length === 3 ? l.light.map((c) => num(c, 0)) : [-0.35, 0.75, 0.6], m = Math.hypot(...L) || 1; return L.map((c) => c / m); })();
+    const coreDim = clamp(num(l.coreShade, 0.6), 0, 1);
     const lit = (c, nrm) => shade(c, 0.62 + 0.5 * Math.max(0, nrm[0] * light[0] + nrm[1] * light[1] + nrm[2] * light[2]));
     // optional colour across the whole cube on screen (two colours along a direction that turns), shaded per face
     const grad = l.gradient && Array.isArray(l.gradient.colors) ? l.gradient : null;
@@ -891,7 +904,7 @@
       }
     };
     const h = n / 2, lo = gap / 2, hi = 1 - gap / 2;
-    drawBox([-h, -h, -h, h, h, h], 0.6);
+    drawBox([-h, -h, -h, h, h, h], coreDim);
     // blocks on the faces turned to the viewer, far ones first
     const boxes = [];
     let band = 0;
@@ -1305,7 +1318,24 @@
         gl.uniform1f(u.u_len, prop(v, l, 'length', 0.35));
         gl.uniform4fv(u.u_cols, pal.data);
         gl.uniform1i(u.u_ncols, pal.count);
-        gl.uniform1i(u.u_colorX, l.colorBy === 'x' ? 1 : 0);
+        gl.uniform1i(u.u_colorX, l.colorBy === 'x' ? 1 : l.colorBy === 'draw' ? 2 : 0);
+        if (l.colorBy === 'draw' && Array.isArray(l.colors) && l.colors.length) {
+          // every `colorPeriod` seconds (snapped to divide the loop) a new draw of 3 to 5 of the colours, spread across
+          // the screen; each period is one steady fade from its draw into the next, as the original does
+          const period = snapPeriod(num(l.colorPeriod, 8.5), `camada ${l.name || i + 1}, cores`);
+          const steps = Math.round(LOOP / period), step = Math.floor(tl / period) % steps, f = (tl % period) / period;
+          const draw = (s) => {
+            const pool = l.colors.map((c, k) => [hash(s, k, 41), c]).sort((a, b) => a[0] - b[0]).map((e) => e[1]);
+            const n = Math.min(pool.length, 3 + Math.floor(hash(s, 42) * 3));
+            const out = new Float32Array(20);
+            pool.slice(0, n).forEach((c, k) => out.set(color(c, [1, 1, 1, 1]), k * 4));
+            return [out, n];
+          };
+          const [a, na] = draw(step), [b, nb] = draw((step + 1) % steps);
+          gl.uniform4fv(u.u_setA, a); gl.uniform1i(u.u_nA, na);
+          gl.uniform4fv(u.u_setB, b); gl.uniform1i(u.u_nB, nb);
+          gl.uniform1f(u.u_setMix, f);
+        }
         gl.uniform1f(u.u_shift, Math.round(num(l.colorShift, 0)) * ph);   // whole slides per loop
         gl.uniform1f(u.u_tips, clamp(num(l.tips, 0), 0, 1));
         gl.uniform1f(u.u_spread, clamp(num(l.speedSpread, 0.4), 0, 0.95));

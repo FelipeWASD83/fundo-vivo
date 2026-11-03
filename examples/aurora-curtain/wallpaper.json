@@ -1,0 +1,147 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Cortina boreal",
+  "author": "Fundo Vivo",
+  "tags": [
+    "Natureza",
+    "Céu",
+    "Noite"
+  ],
+  "loop": 60,
+  "background": "#02040a",
+  "parallax": 0.025,
+  "preview": "preview.jpg",
+  "layers": [
+    {
+      "name": "céu",
+      "type": "gradient",
+      "kind": "linear",
+      "angle": 90,
+      "stops": [
+        [
+          0,
+          "#020611"
+        ],
+        [
+          0.6,
+          "#05101c"
+        ],
+        [
+          1,
+          "#0a1a24"
+        ]
+      ]
+    },
+    {
+      "name": "estrelas",
+      "type": "particles",
+      "preset": "dust",
+      "density": 1.2,
+      "size": 0.0015,
+      "color": "#e6f0ff",
+      "opacity": 0.55,
+      "depth": 0.1
+    },
+    {
+      "name": "aurora",
+      "type": "particles",
+      "preset": "streaks",
+      "angle": 90,
+      "density": 5,
+      "length": 0.55,
+      "lengthSpread": 0.6,
+      "profile": "flat",
+      "size": 0.0016,
+      "thickness": [
+        1,
+        1.6
+      ],
+      "speed": 0.02,
+      "speedSpread": 0.5,
+      "tail": 0.7,
+      "blend": "add",
+      "colors": [
+        "#38ff9c",
+        "#2de2c8",
+        "#5a8cff",
+        "#a46bff",
+        "#8dff5a",
+        "#3cc8ff"
+      ],
+      "colorBy": "draw",
+      "colorPeriod": 10,
+      "opacity": 0.3,
+      "depth": 0.3,
+      "animate": [
+        {
+          "property": "opacity",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.3
+        }
+      ]
+    },
+    {
+      "name": "chão some",
+      "type": "gradient",
+      "kind": "linear",
+      "angle": 90,
+      "blend": "multiply",
+      "stops": [
+        [
+          0,
+          "#ffffffff"
+        ],
+        [
+          0.55,
+          "#ffffffff"
+        ],
+        [
+          0.85,
+          "#303030ff"
+        ],
+        [
+          1,
+          "#000000ff"
+        ]
+      ]
+    },
+    {
+      "name": "serra",
+      "type": "wave",
+      "level": 0.36,
+      "color": "#020408",
+      "shadow": 0,
+      "depth": 0.5,
+      "waves": [
+        {
+          "amplitude": 0.03,
+          "length": 0.9,
+          "period": 60,
+          "phase": 0.2
+        },
+        {
+          "amplitude": 0.012,
+          "length": 0.31,
+          "period": -60,
+          "phase": 0.6
+        }
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "type": "glow",
+      "threshold": 0.25,
+      "strength": 0.9,
+      "radius": 0.02,
+      "band": "bass",
+      "bandAmount": 1.0
+    },
+    {
+      "type": "grain",
+      "amount": 0.02
+    }
+  ]
+}

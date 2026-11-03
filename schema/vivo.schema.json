@@ -541,7 +541,8 @@
         "colorBy": {
           "enum": [
             "random",
-            "x"
+            "x",
+            "draw"
           ]
         },
         "colorShift": {
@@ -671,6 +672,15 @@
         },
         "turns": {
           "type": "integer"
+        },
+        "colorPeriod": {
+          "type": "number",
+          "minimum": 0.5
+        },
+        "coreShade": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         }
       },
       "allOf": [

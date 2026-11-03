@@ -1,0 +1,115 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Maré noturna",
+  "author": "Fundo Vivo",
+  "tags": [
+    "Natureza",
+    "Mar",
+    "Noite"
+  ],
+  "loop": 30,
+  "background": "#02060c",
+  "parallax": 0.03,
+  "preview": "preview.jpg",
+  "layers": [
+    {
+      "name": "mar",
+      "type": "water",
+      "size": 0.45,
+      "horizon": 1.2,
+      "angle": 8,
+      "spread": 30,
+      "height": 1.1,
+      "choppy": 1.5,
+      "speed": 2,
+      "detail": 18,
+      "light": 0,
+      "lightHeight": 10,
+      "deep": "#01050a",
+      "crest": "#05161e",
+      "sky": "#0e2633",
+      "shine": 0.16,
+      "gloss": 90,
+      "fade": 0.4,
+      "depth": 0.5,
+      "animate": [
+        {
+          "property": "shine",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.25
+        }
+      ]
+    },
+    {
+      "name": "caminho da lua",
+      "type": "shape",
+      "shape": "rect",
+      "y": 0.12,
+      "size": 0.12,
+      "height": 0.9,
+      "softness": 1,
+      "color": "#9fd8ff",
+      "opacity": 0.16,
+      "blend": "add",
+      "depth": 0.6,
+      "animate": [
+        {
+          "property": "opacity",
+          "type": "noise",
+          "amount": 0.05,
+          "period": 5
+        }
+      ]
+    },
+    {
+      "name": "brilho da lua",
+      "type": "gradient",
+      "kind": "radial",
+      "center": [
+        0.5,
+        -0.05
+      ],
+      "radius": 0.9,
+      "blend": "add",
+      "stops": [
+        [
+          0,
+          "#3a6a8a"
+        ],
+        [
+          0.35,
+          "#12283a"
+        ],
+        [
+          1,
+          "#00000000"
+        ]
+      ],
+      "depth": 0.2
+    },
+    {
+      "name": "estrelas",
+      "type": "particles",
+      "preset": "dust",
+      "density": 0.6,
+      "size": 0.0016,
+      "color": "#d8ecff",
+      "opacity": 0.6,
+      "depth": 0.1
+    }
+  ],
+  "effects": [
+    {
+      "type": "glow",
+      "threshold": 0.7,
+      "strength": 0.6,
+      "radius": 0.012
+    },
+    {
+      "type": "grain",
+      "amount": 0.025
+    }
+  ]
+}

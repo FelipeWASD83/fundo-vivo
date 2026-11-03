@@ -177,7 +177,11 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
     propósito: recriam o trabalho de outras pessoas). **Desde a 2.7.0 várias usam as imagens e fontes dos originais**
     (para ficarem quase idênticas, a pedido dele): nunca publicar nem pôr no git. Angled Waves, Black Waves e Star
     Trails batem pixel a pixel com o original desenhado pelas contas dos shaders do Wallpaper Engine; os web foram
-    medidos contra a página original aberta no navegador. Medido em 02/11/2026,
+    medidos contra a página original aberta no navegador. Em 03/11/2026 (com o PC livre, a pedido dele) as quatro cenas
+    aproximadas foram gravadas no próprio Wallpaper Engine pelo conversor, numa casa de teste (`--set principal
+    "<nome>"` com `FUNDOVIVO_HOME=build\test-home`, duração 12 s) e ajustadas contra a gravação: a luz do SandBlack foi
+    ajustada por mínimos quadrados bloco a bloco (ambiente 0,74, intensidade 2,55), e o cubo e o Neon mudaram de
+    tamanho, cor e velocidade (a prévia do Neon era acelerada). Ajustes por cima do gerador: `overrides.py` ao lado dele. Medido em 02/11/2026,
     3440x1440, limite 60: todas entre 59 e 60 fps depois da troca do relevo; na 2.6.0, Black Waves, SandBlack, Chroma
     Drencher, Electrico, cubo e Angled Waves refeitos pelo que ele apontou, todos a 59 ou 60. O gerador é um script fora
     do projeto; o que vale é o `wallpaper.json` de cada pasta.
@@ -273,8 +277,10 @@ coleta logo depois de tirar um wallpaper).
 
 ## 6. Pendente
 
-- **Próximo (pedido dele em 02/11/2026)**: fazer wallpapers `.vivo` próprios do Fundo Vivo, para quem baixar o app ter
-  o que testar (vão em `examples/` e no pacote, então são originais: nada das cópias de teste).
+- **Feito, wallpapers próprios** (2.8.0, pedido dele): `night-tide`, `aurora-curtain`, `dusk-layers`, `sparks` e `sound-cube` em
+  `examples/`, ao lado dos quatro da 2.0.0. Só camadas procedurais (nenhuma imagem nem fonte de ninguém); cada um mostra
+  um recurso (mar, riscos com cores sorteadas, ondas, eletricidade, cubo com barras do som). A `preview.jpg` sai do
+  `--vivo-still` em 1280x720 com som de mentira. Os nove a 60 fps no ultrawide.
 
 - **Explorer reiniciando não foi testado**: o Relógio Mond vive pendurado no `Progman` e o `ilha` depende do
   Explorer, então derrubar o Explorer no PC dele podia quebrar os dois. O código (`TaskbarCreated`) está lá.

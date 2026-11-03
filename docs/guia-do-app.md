@@ -1,4 +1,4 @@
-# Fundo Vivo: tudo que tem no app (versão 2.7.0)
+# Fundo Vivo: tudo que tem no app (versão 2.8.0)
 
 Papel de parede animado para o Windows 11, leve: vídeo, imagem ou página web atrás dos ícones da área de trabalho,
 um por monitor. Quando ninguém está vendo o wallpaper (um jogo em tela cheia, uma janela maximizada por cima), ele
@@ -167,8 +167,9 @@ O `.vivo` é o formato próprio do Fundo Vivo: um arquivo que descreve o wallpap
 partículas de chuva, neve, poeira e vaga-lumes), efeitos (desfoque, cor, grão, brilho, raios de luz), animações em loop
 e parallax. Como fazer um, com todos os campos: [`formato-vivo.md`](formato-vivo.md).
 
-- **Exemplos:** quatro vêm no app (filtro **Vivo**): Noite de chuva, Vaga-lumes no crepúsculo, Neve nas montanhas e
-  Pulso (este reage ao som).
+- **Exemplos:** nove vêm no app (filtro **Vivo**): Noite de chuva, Vaga-lumes no crepúsculo, Neve nas montanhas,
+  Pulso, Maré noturna, Cortina boreal, Camadas do entardecer, Faíscas e Cubo sonoro. Pulso, Maré noturna, Cortina
+  boreal, Camadas do entardecer e Cubo sonoro reagem ao som; Faíscas segue o mouse.
 - **O que dá para fazer** (2.5.0): além de imagem, gradiente, formas e partículas, texto que se digita, chuva de
   código, riscos de neon, ondas recortadas, fumaça e areia em relevo, barras do som, cubo que pula com a música e
   tentáculos. O som chega em 64 faixas. Na 2.6.0: mar escuro com cristas brilhando (com areia, se quiser) e

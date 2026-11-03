@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.8.0 (03/11/2026)
+
+### Novo
+- Cinco wallpapers novos vêm com o app: **Maré noturna** (mar escuro sob a lua), **Cortina boreal** (aurora de luz caindo), **Camadas do entardecer** (faixas de papel ondulando), **Faíscas** (eletricidade que segue o mouse) e **Cubo sonoro** (cubo que pula com a música dentro de um anel de barras). Agora são nove no filtro Vivo.
+- Os riscos podem sortear algumas cores e espalhar pela tela, passando devagar para um sorteio novo de tempos em tempos.
+- O cubo aceita a direção da luz e o tom do miolo.
+
+### Corrigido
+- A ondulação de tela inteira esticava a borda da imagem em faixas claras; agora a borda é espelhada.
+
 ## 2.7.0 (02/11/2026)
 
 ### Novo

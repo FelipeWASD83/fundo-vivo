@@ -1,0 +1,249 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Camadas do entardecer",
+  "author": "Fundo Vivo",
+  "tags": [
+    "Abstrato",
+    "Ondas",
+    "Pôr do sol"
+  ],
+  "loop": 60,
+  "background": "#1b0f33",
+  "parallax": 0.05,
+  "preview": "preview.jpg",
+  "layers": [
+    {
+      "name": "céu",
+      "type": "gradient",
+      "kind": "linear",
+      "angle": 90,
+      "stops": [
+        [
+          0,
+          "#1b0f33"
+        ],
+        [
+          0.5,
+          "#4a1f5c"
+        ],
+        [
+          1,
+          "#ff9a6a"
+        ]
+      ]
+    },
+    {
+      "name": "sol",
+      "type": "shape",
+      "shape": "circle",
+      "y": -0.18,
+      "size": 0.22,
+      "softness": 0.35,
+      "color": "#ffd28a",
+      "opacity": 0.9,
+      "blend": "add",
+      "depth": 0.1,
+      "animate": [
+        {
+          "property": "scale",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.06
+        }
+      ]
+    },
+    {
+      "name": "faixa 1",
+      "type": "wave",
+      "level": -0.3,
+      "color": "#3a1c5c",
+      "shadow": 0.4,
+      "shadowSize": 0.025,
+      "depth": 0.15,
+      "waves": [
+        {
+          "amplitude": 0.02,
+          "length": 0.8,
+          "period": 30,
+          "phase": 0.0
+        },
+        {
+          "amplitude": 0.008,
+          "length": 0.296,
+          "period": -15.0,
+          "phase": 0.0
+        }
+      ],
+      "animate": [
+        {
+          "property": "amplitude",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.12
+        }
+      ]
+    },
+    {
+      "name": "faixa 2",
+      "type": "wave",
+      "level": -0.2,
+      "color": "#5a2368",
+      "shadow": 0.4,
+      "shadowSize": 0.025,
+      "depth": 0.32,
+      "waves": [
+        {
+          "amplitude": 0.022,
+          "length": 0.7,
+          "period": -20,
+          "phase": 0.17
+        },
+        {
+          "amplitude": 0.0088,
+          "length": 0.259,
+          "period": 10.0,
+          "phase": 0.41
+        }
+      ],
+      "animate": [
+        {
+          "property": "amplitude",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.12
+        }
+      ]
+    },
+    {
+      "name": "faixa 3",
+      "type": "wave",
+      "level": -0.09,
+      "color": "#8a2c6c",
+      "shadow": 0.4,
+      "shadowSize": 0.025,
+      "depth": 0.49,
+      "waves": [
+        {
+          "amplitude": 0.025,
+          "length": 0.62,
+          "period": 15,
+          "phase": 0.34
+        },
+        {
+          "amplitude": 0.010000000000000002,
+          "length": 0.2294,
+          "period": -7.5,
+          "phase": 0.82
+        }
+      ],
+      "animate": [
+        {
+          "property": "amplitude",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.12
+        }
+      ]
+    },
+    {
+      "name": "faixa 4",
+      "type": "wave",
+      "level": 0.03,
+      "color": "#c23e5e",
+      "shadow": 0.4,
+      "shadowSize": 0.025,
+      "depth": 0.66,
+      "waves": [
+        {
+          "amplitude": 0.027,
+          "length": 0.55,
+          "period": -12,
+          "phase": 0.51
+        },
+        {
+          "amplitude": 0.0108,
+          "length": 0.20350000000000001,
+          "period": 6.0,
+          "phase": 1.23
+        }
+      ],
+      "animate": [
+        {
+          "property": "amplitude",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.35
+        }
+      ]
+    },
+    {
+      "name": "faixa 5",
+      "type": "wave",
+      "level": 0.15,
+      "color": "#ec6a4a",
+      "shadow": 0.4,
+      "shadowSize": 0.025,
+      "depth": 0.8300000000000001,
+      "waves": [
+        {
+          "amplitude": 0.03,
+          "length": 0.5,
+          "period": 10,
+          "phase": 0.68
+        },
+        {
+          "amplitude": 0.012,
+          "length": 0.185,
+          "period": -5.0,
+          "phase": 1.64
+        }
+      ],
+      "animate": [
+        {
+          "property": "amplitude",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.35
+        }
+      ]
+    },
+    {
+      "name": "faixa 6",
+      "type": "wave",
+      "level": 0.29,
+      "color": "#2a1030",
+      "shadow": 0.4,
+      "shadowSize": 0.025,
+      "depth": 1.0,
+      "waves": [
+        {
+          "amplitude": 0.035,
+          "length": 0.45,
+          "period": -7.5,
+          "phase": 0.8500000000000001
+        },
+        {
+          "amplitude": 0.014000000000000002,
+          "length": 0.1665,
+          "period": 3.75,
+          "phase": 2.05
+        }
+      ],
+      "animate": [
+        {
+          "property": "amplitude",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.35
+        }
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "type": "grain",
+      "amount": 0.02
+    }
+  ]
+}

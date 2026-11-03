@@ -1,0 +1,135 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Cubo sonoro",
+  "author": "Fundo Vivo",
+  "tags": [
+    "Abstrato",
+    "Música",
+    "3D"
+  ],
+  "loop": 60,
+  "background": "#03080a",
+  "parallax": 0.04,
+  "preview": "preview.jpg",
+  "layers": [
+    {
+      "name": "fundo",
+      "type": "gradient",
+      "kind": "radial",
+      "center": [
+        0.5,
+        0.5
+      ],
+      "radius": 1.0,
+      "stops": [
+        [
+          0,
+          "#0a2026"
+        ],
+        [
+          1,
+          "#020607"
+        ]
+      ]
+    },
+    {
+      "name": "poeira",
+      "type": "particles",
+      "preset": "dust",
+      "density": 0.8,
+      "size": 0.0026,
+      "color": "#9ff5e0",
+      "opacity": 0.5,
+      "depth": 0.3
+    },
+    {
+      "name": "anel do som",
+      "type": "spectrum",
+      "shape": "circle",
+      "bars": 96,
+      "from": 1,
+      "to": 50,
+      "radius": 0.3,
+      "barWidth": 0.004,
+      "height": 0.09,
+      "minHeight": 0.004,
+      "colors": [
+        "#4affd2",
+        "#4aa8ff"
+      ],
+      "opacity": 0.8,
+      "depth": 0.5,
+      "animate": [
+        {
+          "property": "rotation",
+          "type": "spin",
+          "amount": -1,
+          "period": 60
+        }
+      ]
+    },
+    {
+      "name": "cubo",
+      "type": "cube",
+      "size": 0.3,
+      "cells": 3,
+      "gap": 0.06,
+      "perspective": 3.5,
+      "pitch": 28,
+      "coreShade": 0.35,
+      "light": [
+        -0.4,
+        0.7,
+        0.7
+      ],
+      "gradient": {
+        "colors": [
+          "#c8fff0",
+          "#3aa8c8"
+        ],
+        "angle": 60,
+        "turns": 1
+      },
+      "depth": 0.8,
+      "audio": {
+        "amount": 0.12
+      },
+      "animate": [
+        {
+          "property": "yaw",
+          "type": "spin",
+          "period": 60
+        },
+        {
+          "property": "pitch",
+          "type": "oscillate",
+          "amount": 8,
+          "period": 20
+        },
+        {
+          "property": "scale",
+          "type": "audio",
+          "band": "bass",
+          "amount": 0.05
+        }
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "type": "glow",
+      "threshold": 0.6,
+      "strength": 0.8,
+      "radius": 0.012,
+      "band": "bass",
+      "bandAmount": 0.8
+    },
+    {
+      "type": "chromatic",
+      "amount": 0,
+      "band": "bass",
+      "bandAmount": 0.006
+    }
+  ]
+}

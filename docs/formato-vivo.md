@@ -179,6 +179,15 @@ Comum a todas: `type`, `name` (opcional), `anchor`, `x`, `y`, `opacity` (0 a 1),
 - **Loop até 3600 s**. Acima de 120 s o wallpaper toca sempre ao vivo (não vira vídeo).
 - A sombra da camada `wave` passou a cair como um sino (`shadowSize` é a largura dela).
 
+### Recursos novos (2.8.0)
+
+- **Riscos com cores sorteadas**: `colorBy: "draw"` com `colorPeriod` (segundos): a cada período, 3 a 5 das `colors`
+  são sorteadas e espalhadas em degradê pela largura da tela, e o período inteiro é uma passagem lenta para o
+  próximo sorteio.
+- **Cubo**: `light: [x, y, z]` (a direção da luz vista da câmera: x para a direita, y para cima, z para quem olha) e
+  `coreShade` (0 a 1, o tom do cubo de dentro, que aparece entre os blocos).
+- O efeito `ripple` espelha a imagem nas bordas, em vez de esticar a última fileira.
+
 ## Animações (`animate`)
 
 Uma lista de animações por propriedade, todas em **loop**, nunca em linha do tempo:

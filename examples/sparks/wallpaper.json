@@ -1,0 +1,80 @@
+{
+  "format": "fundo-vivo",
+  "version": 1,
+  "title": "Faíscas",
+  "author": "Fundo Vivo",
+  "tags": [
+    "Abstrato",
+    "Eletricidade",
+    "Interativo"
+  ],
+  "loop": 20,
+  "background": "#060302",
+  "parallax": 0.03,
+  "preview": "preview.jpg",
+  "layers": [
+    {
+      "name": "fundo",
+      "type": "gradient",
+      "kind": "radial",
+      "center": [
+        0.5,
+        0.6
+      ],
+      "radius": 1.2,
+      "stops": [
+        [
+          0,
+          "#1a0b05"
+        ],
+        [
+          1,
+          "#040201"
+        ]
+      ]
+    },
+    {
+      "name": "brasas",
+      "type": "particles",
+      "preset": "fireflies",
+      "density": 0.8,
+      "size": 0.002,
+      "color": "#ff8a3a",
+      "opacity": 0.5,
+      "depth": 0.2
+    },
+    {
+      "name": "corrente",
+      "type": "electric",
+      "count": 90,
+      "reach": 0.26,
+      "size": 0.003,
+      "color": "#ff9a40",
+      "core": "#fff2d8",
+      "arcs": 6,
+      "flicker": 14,
+      "width": 0.0014,
+      "roughness": 0.28,
+      "wander": 0.015,
+      "depth": 0.5,
+      "audio": {
+        "band": "bass",
+        "amount": 0.5
+      }
+    }
+  ],
+  "effects": [
+    {
+      "type": "glow",
+      "threshold": 0.2,
+      "strength": 1.2,
+      "radius": 0.012,
+      "band": "bass",
+      "bandAmount": 0.8
+    },
+    {
+      "type": "grain",
+      "amount": 0.025
+    }
+  ]
+}
