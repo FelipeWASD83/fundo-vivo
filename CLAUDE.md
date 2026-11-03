@@ -161,10 +161,23 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   - **`animate` em propriedade que a camada não escreveu**: o `animated()` marca em `v._fromDefault` e o `prop()` soma o
     padrão. Até a 2.5.0 partia de 0 (as ondas do Angled Waves ficavam retas sem música). Propriedade nova que pode ser
     animada sempre lida pelo `prop(v, l, nome, padrão)`.
+  - **Recursos da 2.7.0** (para as cópias quase idênticas): imagem com `scroll`, `ripple` (mapa de normais, a conta do
+    `waterripple` do Wallpaper Engine com o deslize trocado por um círculo, para o loop fechar), `mask`, `colorMask` e
+    `light`; efeitos `ripple` e `lens`; riscos `pill`/`flat`/tamanho fixo; cubo com `perspective` e `gradient`;
+    `electric` com `style: tentacles`; `fontFile` em texto; `grain` com `mode: multiply` e hash inteiro (o de seno fazia
+    listras). Loop até 3600 s; **acima de 120 s conta como ao vivo nos dois lados** (`realtime` no `vivo.js` e no
+    `Packages.Inspect`), porque viraria um vídeo enorme. Todo uniform novo do `P.image` tem que ser zerado no desenho
+    do texto, que usa o mesmo programa.
+  - **Medir fps de `.vivo` com imagem grande**: o motor de teste grava duas leituras de quadros (`web stats` aos 8 s e
+    `web stats2` aos 16 s); o fps certo é a diferença entre elas dividida por 8. Só a primeira mistura o carregamento:
+    o Star Trails, com folhas de até 7285 px, dava 56 nela e 60 na diferença.
   - **Ruído pesado**: a inclinação do relevo vem de `dFdx`/`dFdy` do ruído (uma conta por pixel); com três contas a
     fumaça dava 54 fps no ultrawide e com uma deu 71 a 130 (medido com o Rocket League aberto usando 58% da placa).
   - Cópias de teste de 11 wallpapers do Workshop dele em `build\copias\` (fora do git e do repositório público, de
-    propósito: recriam o trabalho de outras pessoas, sem nenhum arquivo, código ou logo delas). Medido em 02/11/2026,
+    propósito: recriam o trabalho de outras pessoas). **Desde a 2.7.0 várias usam as imagens e fontes dos originais**
+    (para ficarem quase idênticas, a pedido dele): nunca publicar nem pôr no git. Angled Waves, Black Waves e Star
+    Trails batem pixel a pixel com o original desenhado pelas contas dos shaders do Wallpaper Engine; os web foram
+    medidos contra a página original aberta no navegador. Medido em 02/11/2026,
     3440x1440, limite 60: todas entre 59 e 60 fps depois da troca do relevo; na 2.6.0, Black Waves, SandBlack, Chroma
     Drencher, Electrico, cubo e Angled Waves refeitos pelo que ele apontou, todos a 59 ou 60. O gerador é um script fora
     do projeto; o que vale é o `wallpaper.json` de cada pasta.
@@ -259,6 +272,9 @@ formato do vídeo); e a memória do vídeo só voltava quando o GC passava (agor
 coleta logo depois de tirar um wallpaper).
 
 ## 6. Pendente
+
+- **Próximo (pedido dele em 02/11/2026)**: fazer wallpapers `.vivo` próprios do Fundo Vivo, para quem baixar o app ter
+  o que testar (vão em `examples/` e no pacote, então são originais: nada das cópias de teste).
 
 - **Explorer reiniciando não foi testado**: o Relógio Mond vive pendurado no `Progman` e o `ilha` depende do
   Explorer, então derrubar o Explorer no PC dele podia quebrar os dois. O código (`TaskbarCreated`) está lá.

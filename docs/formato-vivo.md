@@ -147,6 +147,38 @@ Comum a todas: `type`, `name` (opcional), `anchor`, `x`, `y`, `opacity` (0 a 1),
 - **Animar o que ficou no padrão**: animar uma propriedade que a camada não escreveu (o `yaw` do cubo, a `amplitude`
   da onda) parte do valor padrão dela. Até a 2.5.0 partia de 0.
 
+### Recursos novos (2.7.0)
+
+- **`image` que rola**: `scroll: [x, y]` em voltas inteiras por loop (negativo vai para o outro lado); a imagem se
+  repete nas bordas.
+- **`image` com ondulação de água**: `ripple: { "src": "normal.png", "amount": 0.005, "tiles": [x, y], "drift": 0.002 }`.
+  Duas amostras de um mapa de normais repetido (`tiles` vezes na imagem) se afastam devagar (`drift`, em larguras de
+  imagem por segundo, num círculo que fecha o loop) e empurram a imagem até `amount` do tamanho dela. A propriedade
+  `rippleAmount` pode ser animada (pelo som, por exemplo).
+- **`image` com máscaras**: `mask: { "src", "scroll" }` apaga onde a máscara é escura; `colorMask: { "src", "scroll",
+  "color" }` pinta a cor onde ela é clara. As duas deslizam sozinhas por cima da imagem (voltas inteiras por loop).
+- **`image` iluminada**: `light: { "x", "y", "height", "radius", "intensity", "ambient" }`, uma luz pontual acima da
+  imagem (posição em frações da imagem, altura e raio em alturas da imagem): `ambient + intensity × cos × (raio /
+  distância)²`. `lightIntensity` pode ser animada.
+- **Fonte dentro do pacote**: numa camada `text`, `font` é o nome da família e `fontFile` o arquivo (`.ttf`, `.otf`,
+  `.woff2`) dentro do `.vivo`.
+- **Riscos** (`preset: "streaks"`): `shape: "pill"` (barra de cor cheia com pontas redondas), `profile: "flat"` (borda
+  reta, em vez de sumir pelos lados), `thickness: [mín, máx]` (multiplica `size`), `lengthSpread` (0 = todos do mesmo
+  comprimento; padrão 1), `speedSpread` (0 = todos na mesma velocidade; padrão 0,4), `tail` (como o rastro some; 1 =
+  em linha reta, padrão 1,6) e `tipLength` (o tamanho da ponta branca, em fração do risco).
+- **Cubo**: `perspective` (a câmera fica a esse número de larguras do cubo; 0 = sem perspectiva) e `gradient:
+  { "colors": [a, b], "angle", "turns" }`, um degradê que atravessa o cubo na tela e gira `turns` voltas por loop.
+- **`electric` com `style: "tentacles"`**: `count` pontos fixos (não cresce com a tela), cada um com alcance entre
+  `minReach` e `maxReach` (em `s`); os que alcançam o cursor esticam uma linha curva até ele e ficam brancos, os outros
+  são pontinhos ciano; um disco azul no cursor cresce quando ele anda. Sem mouse, o cursor faz um oito `turns` vezes por
+  loop. `audio` aumenta o alcance.
+- **Efeitos**: `ripple` (a mesma ondulação, na tela inteira, com `amount: [x, y]`, `tiles`, `drift` e `slide: [x, y]`
+  para o desenho todo andar junto), `lens` (`amount` negativo = barril; `frame: [largura, altura]` diz para que
+  proporção a lente foi feita, e ela se ajusta à tela) e `grain` com `mode: "multiply"` (o grão acompanha o brilho e
+  o preto continua preto).
+- **Loop até 3600 s**. Acima de 120 s o wallpaper toca sempre ao vivo (não vira vídeo).
+- A sombra da camada `wave` passou a cair como um sino (`shadowSize` é a largura dela).
+
 ## Animações (`animate`)
 
 Uma lista de animações por propriedade, todas em **loop**, nunca em linha do tempo:
@@ -201,8 +233,8 @@ Ao pôr um `.vivo` num monitor, o Fundo Vivo decide sozinho:
 
 `glow` e `rays` aceitam também `band` e `bandAmount`: o brilho aumenta com o som.
 
-- **Não usa nada que dependa do momento** (a animação `audio`, uma camada `spectrum` ou `electric`, um `audio` em camada e
-  um `band` em efeito dependem): o loop é **renderizado quadro a
+- **Não usa nada que dependa do momento** (a animação `audio`, uma camada `spectrum` ou `electric`, um `audio` em camada,
+  um `band` em efeito e um `loop` acima de 120 s dependem): o loop é **renderizado quadro a
   quadro** no tamanho daquele monitor e toca como vídeo, gastando o que um vídeo gasta. Com `parallax`, o vídeo sai um
   pouco maior e anda com o mouse (o mesmo esquema das cenas: o vídeo inteiro anda junto, sem a profundidade de cada
   camada).

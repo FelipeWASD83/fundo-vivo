@@ -30,7 +30,7 @@
     "loop": {
       "type": "number",
       "minimum": 1,
-      "maximum": 120,
+      "maximum": 3600,
       "default": 20
     },
     "background": {
@@ -237,7 +237,8 @@
             "circle",
             "ring",
             "rect",
-            "polygon"
+            "polygon",
+            "pill"
           ]
         },
         "color": {
@@ -556,6 +557,120 @@
         },
         "pitch": {
           "type": "number"
+        },
+        "scroll": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "ripple": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            },
+            "tiles": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "drift": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "src"
+          ]
+        },
+        "mask": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "scroll": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "src"
+          ]
+        },
+        "colorMask": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "scroll": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            }
+          },
+          "required": [
+            "src"
+          ]
+        },
+        "fontFile": {
+          "type": "string"
+        },
+        "profile": {
+          "enum": [
+            "soft",
+            "flat"
+          ]
+        },
+        "lengthSpread": {
+          "type": "number"
+        },
+        "speedSpread": {
+          "type": "number"
+        },
+        "tail": {
+          "type": "number"
+        },
+        "tipLength": {
+          "type": "number"
+        },
+        "perspective": {
+          "type": "number",
+          "minimum": 0
+        },
+        "style": {
+          "enum": [
+            "bolts",
+            "tentacles"
+          ]
+        },
+        "minReach": {
+          "type": "number"
+        },
+        "maxReach": {
+          "type": "number"
+        },
+        "turns": {
+          "type": "integer"
         }
       },
       "allOf": [
@@ -654,7 +769,9 @@
             "glow",
             "rays",
             "shake",
-            "chromatic"
+            "chromatic",
+            "ripple",
+            "lens"
           ]
         },
         "radius": {
@@ -682,8 +799,19 @@
           "maximum": 1
         },
         "amount": {
-          "type": "number",
-          "minimum": 0
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          ]
         },
         "threshold": {
           "type": "number",
@@ -713,6 +841,42 @@
         },
         "bandAmount": {
           "type": "number"
+        },
+        "src": {
+          "type": "string"
+        },
+        "tiles": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "drift": {
+          "type": "number"
+        },
+        "slide": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "frame": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "mode": {
+          "enum": [
+            "add",
+            "multiply"
+          ]
         }
       }
     },
