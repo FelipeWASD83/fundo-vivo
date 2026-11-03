@@ -67,9 +67,12 @@ public static class Packages
                 })?.AsObject() ?? throw new InvalidDataException("wallpaper.json vazio");
             if (root["format"]?.ToString() != "fundo-vivo") throw new InvalidDataException("não é um wallpaper do Fundo Vivo");
 
-            bool realtime = (root["layers"] as JsonArray ?? new JsonArray())
-                .SelectMany(l => (l?["animate"] as JsonArray)?.AsEnumerable() ?? Enumerable.Empty<JsonNode>())
-                .Any(a => a?["type"]?.ToString() == "audio");
+            // the same test as the runtime's wantsSound: an audio animation, a spectrum, a layer's "audio", an effect's "band"
+            var layers = (root["layers"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().ToList();
+            bool realtime = layers.SelectMany(l => (l["animate"] as JsonArray)?.AsEnumerable() ?? Enumerable.Empty<JsonNode>())
+                    .Any(a => a?["type"]?.ToString() == "audio")
+                || layers.Any(l => l["type"]?.ToString() == "spectrum" || l["audio"] is JsonObject)
+                || (root["effects"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().Any(e => e["band"] != null);
             string preview = null;
             string previewName = root["preview"]?.ToString();
             var previewEntry = previewName == null ? null : zip.GetEntry(previewName.Replace('\\', '/'));

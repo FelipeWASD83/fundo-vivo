@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.0 (02/11/2026)
+
+### Novo
+- O formato `.vivo` ganhou camadas novas: **texto** (com várias cores numa linha, digitando sozinho e cursor piscando), **chuva de código**, **riscos** (linhas compridas coloridas atravessando a tela), **onda** (faixa recortada que anda, com sombra), **ruído** (fumaça, areia, rocha, em relevo), **barras do som** (em linha ou em círculo), **polígono**, **cubo** isométrico que pula com o som e **tentáculos**.
+- O som chega em 64 faixas: dá para escolher uma faixa (0 a 63) ou um trecho, além de graves, médios e agudos.
+- Qualquer número de uma camada pode ser animado (o comprimento dos riscos, a altura da onda, o brilho do relevo), inclusive pelo som.
+- Efeitos novos: **tremor** da imagem com os graves e **separação de cor**; o brilho e os raios de luz também podem crescer com o som.
+
 ## 2.4.0 (02/11/2026)
 
 ### Novo

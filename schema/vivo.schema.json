@@ -3,99 +3,664 @@
   "$id": "https://github.com/FelipeWASD83/fundo-vivo/schema/vivo.schema.json",
   "title": "Fundo Vivo wallpaper (.vivo), version 1",
   "type": "object",
-  "required": ["format", "version", "layers"],
+  "required": [
+    "format",
+    "version",
+    "layers"
+  ],
   "properties": {
-    "format": { "const": "fundo-vivo" },
-    "version": { "const": 1 },
-    "title": { "type": "string" },
-    "author": { "type": "string" },
-    "tags": { "type": "array", "items": { "type": "string" } },
-    "loop": { "type": "number", "minimum": 1, "maximum": 120, "default": 20 },
-    "background": { "$ref": "#/$defs/color", "default": "#000000" },
-    "parallax": { "type": "number", "minimum": 0, "maximum": 0.15, "default": 0 },
-    "preview": { "type": "string" },
-    "layers": { "type": "array", "items": { "$ref": "#/$defs/layer" } },
-    "effects": { "type": "array", "items": { "$ref": "#/$defs/effect" } }
+    "format": {
+      "const": "fundo-vivo"
+    },
+    "version": {
+      "const": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "author": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "loop": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 120,
+      "default": 20
+    },
+    "background": {
+      "$ref": "#/$defs/color",
+      "default": "#000000"
+    },
+    "parallax": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.15,
+      "default": 0
+    },
+    "preview": {
+      "type": "string"
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/layer"
+      }
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/effect"
+      }
+    }
   },
   "$defs": {
-    "color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$" },
-    "anchor": { "enum": ["center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right"] },
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "anchor": {
+      "enum": [
+        "center",
+        "top",
+        "bottom",
+        "left",
+        "right",
+        "top-left",
+        "top-right",
+        "bottom-left",
+        "bottom-right"
+      ]
+    },
     "animation": {
       "type": "object",
-      "required": ["property", "type"],
+      "required": [
+        "property",
+        "type"
+      ],
       "properties": {
-        "property": { "enum": ["x", "y", "scale", "rotation", "opacity"] },
-        "type": { "enum": ["oscillate", "spin", "noise", "audio"] },
-        "amount": { "type": "number" },
-        "period": { "type": "number", "exclusiveMinimum": 0 },
-        "phase": { "type": "number", "minimum": 0, "maximum": 1 },
-        "band": { "enum": ["bass", "mid", "treble", "all"] }
+        "property": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "oscillate",
+            "spin",
+            "noise",
+            "audio"
+          ]
+        },
+        "amount": {
+          "type": "number"
+        },
+        "period": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "phase": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "band": {
+          "$ref": "#/$defs/band"
+        }
       }
     },
     "layer": {
       "type": "object",
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "enum": ["image", "gradient", "shape", "particles"] },
-        "name": { "type": "string" },
-        "anchor": { "$ref": "#/$defs/anchor" },
-        "x": { "type": "number" },
-        "y": { "type": "number" },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "blend": { "enum": ["normal", "add", "screen", "multiply"] },
-        "depth": { "type": "number", "minimum": 0, "maximum": 1 },
-        "rotation": { "type": "number" },
-        "scale": { "type": "number" },
-        "animate": { "type": "array", "items": { "$ref": "#/$defs/animation" } },
-        "src": { "type": "string" },
-        "fit": { "enum": ["cover", "contain", "width", "height", "none"] },
-        "size": { "type": "number" },
-        "tint": { "$ref": "#/$defs/color" },
-        "kind": { "enum": ["linear", "radial"] },
-        "angle": { "type": "number" },
-        "center": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
-        "radius": { "type": "number" },
-        "stops": {
-          "type": "array", "maxItems": 8,
-          "items": { "type": "array", "prefixItems": [{ "type": "number" }, { "$ref": "#/$defs/color" }], "minItems": 2, "maxItems": 2 }
+        "type": {
+          "enum": [
+            "image",
+            "gradient",
+            "shape",
+            "particles",
+            "text",
+            "code",
+            "wave",
+            "noise",
+            "spectrum",
+            "cube",
+            "tendrils"
+          ]
         },
-        "shape": { "enum": ["circle", "ring", "rect"] },
-        "color": { "$ref": "#/$defs/color" },
-        "height": { "type": "number" },
-        "thickness": { "type": "number" },
-        "softness": { "type": "number", "minimum": 0, "maximum": 1 },
-        "preset": { "enum": ["rain", "snow", "dust", "fireflies"] },
-        "density": { "type": "number", "minimum": 0 },
-        "speed": { "type": "number", "minimum": 0 },
-        "seed": { "type": "integer" }
+        "name": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/$defs/anchor"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "blend": {
+          "enum": [
+            "normal",
+            "add",
+            "screen",
+            "multiply"
+          ]
+        },
+        "depth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "scale": {
+          "type": "number"
+        },
+        "animate": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/animation"
+          }
+        },
+        "src": {
+          "type": "string"
+        },
+        "fit": {
+          "enum": [
+            "cover",
+            "contain",
+            "width",
+            "height",
+            "none"
+          ]
+        },
+        "size": {
+          "type": "number"
+        },
+        "tint": {
+          "$ref": "#/$defs/color"
+        },
+        "kind": {
+          "enum": [
+            "linear",
+            "radial"
+          ]
+        },
+        "angle": {
+          "type": "number"
+        },
+        "center": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "radius": {
+          "type": "number"
+        },
+        "stops": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/color"
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "shape": {
+          "enum": [
+            "circle",
+            "ring",
+            "rect",
+            "polygon"
+          ]
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "height": {
+          "type": "number"
+        },
+        "thickness": {
+          "type": "number"
+        },
+        "softness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "preset": {
+          "enum": [
+            "rain",
+            "snow",
+            "dust",
+            "fireflies",
+            "streaks"
+          ]
+        },
+        "density": {
+          "type": "number",
+          "minimum": 0
+        },
+        "speed": {
+          "type": "number",
+          "minimum": 0
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "colors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/color"
+          },
+          "maxItems": 7
+        },
+        "length": {
+          "type": "number"
+        },
+        "lines": {
+          "type": "array"
+        },
+        "text": {
+          "type": "string"
+        },
+        "font": {
+          "type": "string"
+        },
+        "weight": {
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "lineHeight": {
+          "type": "number"
+        },
+        "reveal": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cursor": {
+          "type": "boolean"
+        },
+        "cursorColor": {
+          "$ref": "#/$defs/color"
+        },
+        "trail": {
+          "type": "number"
+        },
+        "changes": {
+          "type": "integer"
+        },
+        "head": {
+          "$ref": "#/$defs/color"
+        },
+        "glyphs": {
+          "type": "string"
+        },
+        "level": {
+          "type": "number"
+        },
+        "amplitude": {
+          "type": "number"
+        },
+        "color2": {
+          "$ref": "#/$defs/color"
+        },
+        "gradient": {
+          "type": "number"
+        },
+        "shadow": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "shadowSize": {
+          "type": "number"
+        },
+        "waves": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "amplitude": {
+                    "type": "number"
+                  },
+                  "length": {
+                    "type": "number"
+                  },
+                  "period": {
+                    "type": "number"
+                  },
+                  "phase": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "octaves": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7
+        },
+        "ridged": {
+          "type": "boolean"
+        },
+        "drift": {
+          "type": "number"
+        },
+        "relief": {
+          "type": "number"
+        },
+        "light": {
+          "type": "number"
+        },
+        "contrast": {
+          "type": "number"
+        },
+        "shine": {
+          "type": "number"
+        },
+        "bars": {
+          "type": "integer"
+        },
+        "from": {
+          "type": "number"
+        },
+        "to": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "barWidth": {
+          "type": "number"
+        },
+        "minHeight": {
+          "type": "number"
+        },
+        "gain": {
+          "type": "number"
+        },
+        "mirror": {
+          "type": "boolean"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "cells": {
+          "type": "integer"
+        },
+        "gap": {
+          "type": "number"
+        },
+        "top": {
+          "$ref": "#/$defs/color"
+        },
+        "left": {
+          "$ref": "#/$defs/color"
+        },
+        "right": {
+          "$ref": "#/$defs/color"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "segments": {
+          "type": "integer"
+        },
+        "curl": {
+          "type": "number"
+        },
+        "heading": {
+          "type": "number"
+        },
+        "spread": {
+          "type": "number"
+        },
+        "audio": {
+          "type": "object",
+          "properties": {
+            "band": {
+              "$ref": "#/$defs/band"
+            },
+            "amount": {
+              "type": "number"
+            }
+          }
+        }
       },
       "allOf": [
-        { "if": { "properties": { "type": { "const": "image" } } }, "then": { "required": ["src"] } },
-        { "if": { "properties": { "type": { "const": "gradient" } } }, "then": { "required": ["stops"] } },
-        { "if": { "properties": { "type": { "const": "shape" } } }, "then": { "required": ["shape"] } },
-        { "if": { "properties": { "type": { "const": "particles" } } }, "then": { "required": ["preset"] } }
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "image"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "src"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "gradient"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "stops"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "shape"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "shape"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "particles"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "preset"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            }
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "lines"
+                ]
+              },
+              {
+                "required": [
+                  "text"
+                ]
+              }
+            ]
+          }
+        }
       ]
     },
     "effect": {
       "type": "object",
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "enum": ["blur", "grade", "grain", "glow", "rays"] },
-        "radius": { "type": "number", "minimum": 0 },
-        "brightness": { "type": "number" },
-        "contrast": { "type": "number" },
-        "saturation": { "type": "number" },
-        "hue": { "type": "number" },
-        "tint": { "$ref": "#/$defs/color" },
-        "tintAmount": { "type": "number", "minimum": 0, "maximum": 1 },
-        "amount": { "type": "number", "minimum": 0 },
-        "threshold": { "type": "number", "minimum": 0, "maximum": 1 },
-        "strength": { "type": "number", "minimum": 0 },
-        "anchor": { "$ref": "#/$defs/anchor" },
-        "x": { "type": "number" },
-        "y": { "type": "number" },
-        "length": { "type": "number", "minimum": 0, "maximum": 1 }
+        "type": {
+          "enum": [
+            "blur",
+            "grade",
+            "grain",
+            "glow",
+            "rays",
+            "shake",
+            "chromatic"
+          ]
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        },
+        "brightness": {
+          "type": "number"
+        },
+        "contrast": {
+          "type": "number"
+        },
+        "saturation": {
+          "type": "number"
+        },
+        "hue": {
+          "type": "number"
+        },
+        "tint": {
+          "$ref": "#/$defs/color"
+        },
+        "tintAmount": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "amount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0
+        },
+        "anchor": {
+          "$ref": "#/$defs/anchor"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "length": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "band": {
+          "$ref": "#/$defs/band"
+        },
+        "bandAmount": {
+          "type": "number"
+        }
       }
+    },
+    "band": {
+      "oneOf": [
+        {
+          "enum": [
+            "bass",
+            "mid",
+            "treble",
+            "all"
+          ]
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 63
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      ]
     }
   }
 }

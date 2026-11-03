@@ -146,7 +146,19 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   - Medido em 02/11/2026: 1200 quadros 3646×1526 em 15,6 s. O grão de filme fica **parado no vídeo** (mudando a cada
     quadro, a neve saía com 61 Mbit/s; parado, 8,6), e o encoder vai com CQ 21 e teto de 30 Mbit/s (a chuva chegava
     a 60). Ao vivo no ultrawide: 59 a 60 fps.
-  - `FundoVivo.exe --vivo-still <vivo> <png> <w> <h> [t] [margem]` desenha um quadro com o mesmo renderizador: é o
+  - **Camadas da 2.5.0** (`text`, `code`, `wave`, `noise`, `spectrum`, `cube`, `tendrils`, `shape: polygon`,
+    `preset: streaks`; efeitos `shake` e `chromatic`): todas função do tempo, como o resto. Texto e glifos são desenhados
+    pelo navegador num `<canvas>` 2D e sobem como textura (o texto só refaz a textura quando muda o que aparece); cubo,
+    polígono e tentáculos são triângulos montados na CPU a cada quadro (`P.flat`). O som chega em 64 faixas
+    (`spectrum`), com `level(band)` aceitando nome, número ou `[de, até]`. **O que conta como "ao vivo" tem que bater
+    nos dois lados**: `wantsSound` no `vivo.js` e o `realtime` do `Packages.Inspect` (animação `audio`, camada
+    `spectrum`, `audio` em camada, `band` em efeito).
+  - **Ruído pesado**: a inclinação do relevo vem de `dFdx`/`dFdy` do ruído (uma conta por pixel); com três contas a
+    fumaça dava 54 fps no ultrawide e com uma deu 71 a 130 (medido com o Rocket League aberto usando 58% da placa).
+  - Cópias de teste de 11 wallpapers do Workshop dele em `build\copias\` (fora do git e do repositório público, de
+    propósito: recriam o trabalho de outras pessoas, sem nenhum arquivo, código ou logo delas). Medido em 02/11/2026,
+    3440x1440, limite 60: todas entre 59 e 60 fps depois da troca do relevo.
+  - `FundoVivo.exe --vivo-still <vivo> <png> <w> <h> [t] [margem] [som]` desenha um quadro com o mesmo renderizador: é o
     jeito de testar as três proporções sem pôr nada na tela dele. Headless Edge tira a foto antes das imagens
     decodificarem (sai preto); use isso ou o MCP chrome-devtools.
 - **Onde um item vai parar** (`Core/Placement.cs`, 2.3.0): `Ready` diz o que o item toca naquele monitor agora (ou

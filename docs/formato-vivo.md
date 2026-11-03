@@ -93,6 +93,36 @@ Comum a todas: `type`, `name` (opcional), `anchor`, `x`, `y`, `opacity` (0 a 1),
   normal para a área de uma tela 1920×1080; escala com a área), `color`, `size` (em `s`), `speed` (1 = normal),
   `angle` (inclinação da chuva, em graus), `seed` (número: mesma semente, mesmo desenho).
 
+### Camadas novas (2.5.0)
+
+- **`particles` com `preset: "streaks"`**: riscos compridos atravessando a tela no `angle` (graus; 90 = de cima para
+  baixo), com `length` (em `s`), `size` (espessura) e `colors` (lista de até 6 cores, sorteadas por risco). A cabeça é
+  forte e a cauda some. Neon, rastro de estrela, chuva colorida.
+- **`code`**: colunas de caracteres caindo (a chuva de código). `size` (altura do caractere, em `s`), `density` (0 a 1:
+  quantas colunas têm queda), `speed`, `trail` (quantos caracteres tem o rastro), `changes` (quantas vezes por loop cada
+  caractere troca), `color` e `head` (a cor do primeiro), `glyphs` (os caracteres; o padrão é katakana e números,
+  espelhados).
+- **`text`**: `lines` (lista de linhas; cada linha é um texto ou uma lista de pedaços `["texto", "#cor"]`), ou `text`
+  com `\n`. `font` (`mono`, `sans` ou o nome de uma fonte instalada), `size` (altura da letra, em `s`), `weight`,
+  `color`, `align`, `lineHeight`. `reveal` (segundos): digita o texto nos primeiros três quartos desse tempo e segura;
+  `cursor: true` põe um cursor piscando no fim. Fica presa à âncora como uma imagem.
+- **`wave`**: uma faixa preenchida embaixo de uma curva que anda, girada pelo `angle`. `level` (altura da borda a partir
+  do `center`, em `s`), `waves` (até 3, cada uma com `amplitude` e `length` em `s`, `period` em segundos, negativo
+  anda ao contrário, e `phase`), `color` e `color2` (gradiente a partir da borda, ao longo de `gradient`), `shadow`
+  (0 a 1) e `shadowSize`: a sombra em cima da borda, como papel recortado. `amplitude` multiplica todas (dá para animar).
+- **`noise`**: textura de ruído em camadas, iluminada como relevo: fumaça, areia, rocha, céu. `size` (em `s`),
+  `octaves` (1 a 7), `ridged` (cristas), `drift` (quanto anda, em círculo, no loop), `relief` (0 desliga o relevo),
+  `light` (ângulo da luz), `colors` (2 a 4, do fundo ao alto), `contrast`, `shine` (brilho nas partes mais iluminadas).
+- **`spectrum`**: barras do som (as 64 faixas), em linha (`width`, com `mirror` para espelhar para baixo) ou em círculo
+  (`shape: "circle"`, com `radius`). `bars`, `from` e `to` (que faixas usar, 0 a 63), `barWidth`, `height` (altura
+  máxima), `minHeight`, `gain`, `colors` (gradiente da primeira à última barra). Sempre toca ao vivo.
+- **`shape` com `shape: "polygon"`**: `points` (lista de `[x, y]` em `s` em volta da âncora), preenchido. Forma convexa.
+- **`cube`**: um cubo isométrico de `cells` x `cells` x `cells` blocos (`size` em `s`, `gap`, cores `top`, `left` e
+  `right`). Com `audio: { "amount": 0.1 }`, cada bloco das faces cresce com uma faixa do som.
+- **`tendrils`**: um corpo com tentáculos curvando atrás dele. `count`, `segments`, `length` e `width` (em `s`), `curl`,
+  `waves` (quantas ondas por loop), `heading` e `spread` (para onde apontam), `color`; `audio: { "band": "bass",
+  "amount": 0.6 }` estica os tentáculos com o som.
+
 ## Animações (`animate`)
 
 Uma lista de animações por propriedade, todas em **loop**, nunca em linha do tempo:
@@ -113,7 +143,11 @@ Uma lista de animações por propriedade, todas em **loop**, nunca em linha do t
 | `noise` | soma um ruído suave de amplitude `amount`, que se repete a cada `period` |
 | `audio` | soma `amount × nível` da faixa `band` (`bass`, `mid`, `treble`, `all`) do som do PC |
 
-`property` pode ser `x`, `y` (em `s`), `scale`, `rotation` (graus) ou `opacity`. `phase` (0 a 1) desloca o começo.
+`property` pode ser `x`, `y` (em `s`), `scale`, `rotation` (graus) ou `opacity`, e, desde a 2.5.0, **qualquer número da
+camada** (`length` dos riscos, `amplitude` da onda, `shine` do ruído, `density`...). `phase` (0 a 1) desloca o começo.
+
+`band` (no `audio`) pode ser `bass`, `mid`, `treble`, `all`, um número de 0 a 63 (uma das 64 faixas, do grave ao agudo)
+ou `[de, até]` (a média dessas faixas).
 
 ## Loop perfeito
 
@@ -133,13 +167,18 @@ vídeo). `spin` sempre dá um número inteiro de voltas por loop.
 | `grade` | `brightness` (-1 a 1), `contrast`, `saturation` (1 = normal), `hue` (graus), `tint`, `tintAmount` (0 a 1) | correção de cor |
 | `grain` | `amount` (0 a 0,3) | grão de filme |
 | `glow` | `threshold` (0 a 1), `strength`, `radius` (em `s`) | o que é claro brilha em volta |
+| `shake` | `amount` (em `s`), `band` (padrão `bass`) | a imagem inteira treme com a faixa (2.5.0) |
+| `chromatic` | `amount`, `band`, `bandAmount` | separa o vermelho e o azul, mais forte com a faixa (2.5.0) |
 | `rays` | `anchor`, `x`, `y` (como uma camada: âncora mais deslocamento em `s`), `threshold`, `strength`, `length` (0 a 1) | raios de luz saindo de um ponto (o que passa do `threshold` vira raio) |
 
 ## Ao vivo ou vídeo
 
 Ao pôr um `.vivo` num monitor, o Fundo Vivo decide sozinho:
 
-- **Não usa nada que dependa do momento** (hoje, só a animação `audio` depende): o loop é **renderizado quadro a
+`glow` e `rays` aceitam também `band` e `bandAmount`: o brilho aumenta com o som.
+
+- **Não usa nada que dependa do momento** (a animação `audio`, uma camada `spectrum`, um `audio` em camada e um `band` em
+  efeito dependem): o loop é **renderizado quadro a
   quadro** no tamanho daquele monitor e toca como vídeo, gastando o que um vídeo gasta. Com `parallax`, o vídeo sai um
   pouco maior e anda com o mouse (o mesmo esquema das cenas: o vídeo inteiro anda junto, sem a profundidade de cada
   camada).
@@ -156,5 +195,6 @@ saíram em 15,6 s aqui. Mudou o `.vivo`? Ele é renderizado de novo no próximo 
 app\FundoVivo.exe --vivo-still meu.vivo quadro.png 3440 1440 5
 ```
 
-Desenha o quadro do segundo 5 em 3440×1440 com o mesmo runtime que faz o vídeo (um sexto número põe a sobra do pan).
+Desenha o quadro do segundo 5 em 3440×1440 com o mesmo runtime que faz o vídeo (um sexto número põe a sobra do pan; um
+sétimo, `som`, desenha com um som de mentira, para ver o que reage).
 Erros e avisos (período que não divide o loop, imagem que não abriu) vão para `%LOCALAPPDATA%\FundoVivo\logs\scenes.log`.

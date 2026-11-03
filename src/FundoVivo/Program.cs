@@ -30,8 +30,10 @@ public static class Program
                 try
                 {
                     var inv = System.Globalization.CultureInfo.InvariantCulture;
+                    // an eighth argument "som" draws it with a made-up spectrum, so what reacts to sound shows in the picture
                     PackageRenderer.Still(args[1], args[2], int.Parse(args[3]), int.Parse(args[4]),
-                        args.Length > 5 ? double.Parse(args[5], inv) : 0, args.Length > 6 ? double.Parse(args[6], inv) : 0);
+                        args.Length > 5 ? double.Parse(args[5], inv) : 0, args.Length > 6 ? double.Parse(args[6], inv) : 0,
+                        args.Length > 7 && args[7] == "som");
                     return 0;
                 }
                 catch (Exception e) { Log.Write("vivo still failed: " + e); return 1; }

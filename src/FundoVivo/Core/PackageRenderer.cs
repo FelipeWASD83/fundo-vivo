@@ -30,10 +30,10 @@ public static class PackageRenderer
         OnUiThread(() => RenderAsync(job, progress, cancel));
 
     /// <summary>One frame to a PNG (previews and tests): `FundoVivo.exe --vivo-still file.vivo out.png width height [time] [margin]`.</summary>
-    public static void Still(string file, string png, int width, int height, double time, double margin) =>
+    public static void Still(string file, string png, int width, int height, double time, double margin, bool fakeAudio = false) =>
         OnUiThread(async () =>
         {
-            await using var page = await RenderPage.OpenAsync(file, width, height, margin, CancellationToken.None);
+            await using var page = await RenderPage.OpenAsync(file, width, height, margin, CancellationToken.None, fakeAudio);
             await page.DrawAsync(time, 0, CancellationToken.None);
             page.SavePng(png);
             return 0;
@@ -150,11 +150,12 @@ public static class PackageRenderer
         TaskCompletionSource _arrived = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public List<string> Warnings { get; } = new();
 
-        RenderPage(int w, int h) { _width = w; _height = h; }
+        readonly bool _fakeAudio;
+        RenderPage(int w, int h, bool fakeAudio) { _width = w; _height = h; _fakeAudio = fakeAudio; }
 
-        public static async Task<RenderPage> OpenAsync(string file, int width, int height, double margin, CancellationToken cancel)
+        public static async Task<RenderPage> OpenAsync(string file, int width, int height, double margin, CancellationToken cancel, bool fakeAudio = false)
         {
-            var page = new RenderPage(width, height);
+            var page = new RenderPage(width, height, fakeAudio);
             try
             {
                 await page.StartAsync(file, margin, cancel);
@@ -188,7 +189,7 @@ public static class PackageRenderer
                 try { if (JsonNode.Parse(e.WebMessageAsJson) is JsonObject m) { _messages.Enqueue(m); _arrived.TrySetResult(); } } catch { }
             };
             string m = margin.ToString("0.#####", CultureInfo.InvariantCulture);
-            _web.Navigate($"https://render.fundovivo/index.html?mode=render&w={_width}&h={_height}&margin={m}");
+            _web.Navigate($"https://render.fundovivo/index.html?mode=render&w={_width}&h={_height}&margin={m}" + (_fakeAudio ? "&fakeaudio=1" : ""));
 
             var ready = await NextAsync("vivo-ready", TimeSpan.FromSeconds(30), cancel);
             if (ready["warnings"] is JsonArray list) Warnings.AddRange(list.Select(n => n?.ToString()));
