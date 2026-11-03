@@ -73,7 +73,9 @@ public static class Packages
             bool realtime = layers.SelectMany(l => (l["animate"] as JsonArray)?.AsEnumerable() ?? Enumerable.Empty<JsonNode>())
                     .Any(a => a?["type"]?.ToString() == "audio")
                 || layers.Any(l => l["type"]?.ToString() is "spectrum" or "electric" || l["audio"] is JsonObject)
-                || (root["effects"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().Any(e => e["band"] != null);
+                || (root["effects"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().Any(e => e["band"] != null)
+                // a loop longer than two minutes would be a huge video: it always plays live (the runtime takes up to an hour)
+                || Number(root["loop"], 20) > 120;
             string preview = null;
             string previewName = root["preview"]?.ToString();
             var previewEntry = previewName == null ? null : zip.GetEntry(previewName.Replace('\\', '/'));

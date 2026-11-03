@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.7.0 (02/11/2026)
+
+### Novo
+- Imagens no `.vivo` podem rolar e se repetir, ondular como água (por um mapa de normais), ganhar máscaras que deslizam por cima (uma apaga, outra pinta) e ser iluminadas por uma luz pontual que pode seguir o som.
+- Efeitos novos: ondulação de água na tela inteira e lente (barril), calculada no formato da cena original.
+- Riscos em forma de pílula, com espessura e velocidade iguais para todos se quiser, ponta branca do tamanho que escolher e perfil reto.
+- O cubo ganhou perspectiva e um degradê que gira por ele.
+- A eletricidade ganhou o estilo "tentáculos": pontos que esticam linhas curvas até o mouse.
+- Texto com fonte que vai dentro do próprio `.vivo`.
+- Loop de até uma hora; acima de dois minutos o wallpaper toca sempre ao vivo.
+- Grão que acompanha o brilho (o preto continua preto).
+
+### Mudou
+- A sombra da camada de onda cai como um sino, como a de papel recortado.
+
+### Corrigido
+- O grão forte mostrava listras verticais.
+
 ## 2.6.0 (02/11/2026)
 
 ### Novo

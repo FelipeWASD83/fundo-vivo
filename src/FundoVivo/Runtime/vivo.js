@@ -81,8 +81,33 @@
 
   const P = {};
   function buildPrograms() {
-    P.image = program(QUAD_VS, HEAD + `in vec2 v_uv; uniform sampler2D u_tex; uniform vec4 u_uv; uniform vec4 u_tint; uniform float u_opacity; out vec4 o;
-      void main() { vec4 c = texture(u_tex, u_uv.xy + v_uv * u_uv.zw); o = vec4(c.rgb * u_tint.rgb, c.a) * u_opacity * u_tint.a; }`);
+    // An image, optionally scrolling (wrapping around) and rippled: two samples of a tiled normal map, drifting apart,
+    // push the image's coordinates the way water bends what is under it.
+    P.image = program(QUAD_VS, HEAD + `in vec2 v_uv; uniform sampler2D u_tex; uniform vec4 u_uv; uniform vec4 u_tint; uniform float u_opacity;
+      uniform int u_ripple; uniform sampler2D u_normal; uniform vec2 u_tiles; uniform vec4 u_drift; uniform float u_ramount; uniform vec2 u_scroll;
+      uniform int u_maskOn; uniform sampler2D u_mask; uniform vec2 u_mscroll;
+      uniform int u_tmOn; uniform sampler2D u_tmask; uniform vec2 u_tmscroll; uniform vec3 u_tmcolor;
+      uniform int u_lightOn; uniform vec3 u_lpos; uniform vec3 u_light; uniform float u_aspect;
+      out vec4 o;
+      void main() {
+        vec2 base = u_uv.xy + v_uv * u_uv.zw, uv = base;
+        if (u_ripple == 1) {
+          vec3 n1 = texture(u_normal, (uv + u_drift.xy) * u_tiles).xyz * 2.0 - 1.0;
+          vec3 n2 = texture(u_normal, (uv * 1.333 + u_drift.zw) * u_tiles).xyz * 2.0 - 1.0;
+          uv += normalize(vec3(n1.xy + n2.xy, n1.z)).xy * u_ramount;
+        }
+        vec4 c = texture(u_tex, uv + u_scroll);
+        // masks slide on their own over the layer: one paints a colour in (premultiplied), one takes opacity away
+        if (u_tmOn == 1) c.rgb = mix(c.rgb, u_tmcolor * c.a, texture(u_tmask, base + u_tmscroll).r);
+        if (u_maskOn == 1) c *= texture(u_mask, base + u_mscroll).r;
+        if (u_lightOn == 1) {
+          // a point light above the flat image, in image heights: ambient plus intensity * cos(angle) * (radius / distance)^2
+          vec3 d = vec3((base - u_lpos.xy) * vec2(u_aspect, 1.0), -u_lpos.z);
+          float dist = length(d);
+          c.rgb *= u_light.x + u_light.y * (u_lpos.z / dist) * pow(u_light.z / dist, 2.0);
+        }
+        o = vec4(c.rgb * u_tint.rgb, c.a) * u_opacity * u_tint.a;
+      }`);
 
     P.gradient = program(FULL_VS, HEAD + `in vec2 v_uv; uniform vec2 u_res; uniform vec2 u_offset; uniform int u_kind;
       uniform vec2 u_dir; uniform vec2 u_range; uniform vec2 u_center; uniform float u_radius; uniform float u_opacity;
@@ -123,8 +148,9 @@
     P.particles = program(HEAD + `in vec2 a; uniform vec2 u_res; uniform float u_s; uniform float u_ph; uniform float u_L;
       uniform int u_preset; uniform float u_seed; uniform float u_size; uniform float u_speed; uniform float u_angle;
       uniform float u_len; uniform vec4 u_cols[6]; uniform int u_ncols; uniform vec4 u_color;
-      uniform int u_colorX; uniform float u_shift; uniform float u_tips;
+      uniform int u_colorX; uniform float u_shift; uniform float u_tips; uniform float u_spread; uniform vec2 u_thick; uniform float u_lspread;
       uniform vec2 u_offset; out vec2 v_q; out float v_alpha; flat out int v_preset; flat out vec4 v_col; flat out float v_tip;
+      flat out vec2 v_size;
       float h(float n) { return fract(sin(n * 12.9898 + u_seed * 78.233) * 43758.5453); }
       float wraps(float seconds) { return max(1.0, floor(u_L / seconds + 0.5)); }
       void main() {
@@ -163,12 +189,12 @@
         } else {                        // streaks: long lines crossing the screen along the angle, head bright
           float a0 = radians(u_angle);
           vec2 dir = vec2(cos(a0), sin(a0)), perp = vec2(-dir.y, dir.x);
-          float len = u_len * u_s * (0.5 + r4);
+          float len = u_len * u_s * (1.0 - 0.5 * u_lspread + u_lspread * r4);
           float across = abs(u_res.x * perp.x) + abs(u_res.y * perp.y);
           float along = abs(u_res.x * dir.x) + abs(u_res.y * dir.y) + 2.0 * len;
-          float k = wraps(along / (u_speed * u_s * (0.6 + 0.8 * r3)));
+          float k = wraps(along / (u_speed * u_s * (1.0 - u_spread + 2.0 * u_spread * r3)));
           c = u_res * 0.5 + perp * (r2 - 0.5) * across + dir * (fract(r1 + k * u_ph) - 0.5) * along;
-          size = vec2(len, u_size * u_s * (0.6 + 0.8 * r6));
+          size = vec2(len, u_size * u_s * mix(u_thick.x, u_thick.y, r6));
           rot = a0;
           alpha = 0.35 + 0.65 * r6;
           // colour by where the streak is across the screen: the palette as bands that wrap around and slide
@@ -187,18 +213,27 @@
         vec2 local = (a - 0.5) * size;
         local = vec2(cos(rot) * local.x - sin(rot) * local.y, sin(rot) * local.x + cos(rot) * local.y);
         vec2 p = c + local + u_offset;
-        v_q = a - 0.5; v_alpha = alpha; v_preset = u_preset;
+        v_q = a - 0.5; v_alpha = alpha; v_preset = u_preset; v_size = size;
         gl_Position = vec4(p.x / u_res.x * 2.0 - 1.0, 1.0 - p.y / u_res.y * 2.0, 0.0, 1.0);
-      }`, HEAD + `in vec2 v_q; in float v_alpha; flat in int v_preset; flat in vec4 v_col; flat in float v_tip; uniform float u_opacity; out vec4 o;
+      }`, HEAD + `in vec2 v_q; in float v_alpha; flat in int v_preset; flat in vec4 v_col; flat in float v_tip; flat in vec2 v_size;
+      uniform float u_opacity; uniform int u_pill; uniform float u_tipLen; uniform float u_tailPow; uniform int u_flat; out vec4 o;
       void main() {
         float a;
         vec3 rgb = v_col.rgb;
-        if (v_tip > 0.5) rgb = mix(rgb, vec3(1.0), smoothstep(0.32, 0.5, v_q.x));
+        if (v_tip > 0.5) rgb = mix(rgb, vec3(1.0), smoothstep(0.5 - u_tipLen, 0.5, v_q.x));
         if (v_preset == 0) a = exp(-pow(v_q.x * 4.0, 2.0)) * smoothstep(0.5, 0.0, abs(v_q.y));
         else if (v_preset == 3) { float r = length(v_q) * 2.0; a = exp(-r * r * 18.0) + 0.35 * exp(-r * r * 3.5); }
-        else if (v_preset == 4) a = pow(clamp(v_q.x + 0.5, 0.0, 1.0), 1.6) * exp(-pow(v_q.y * 3.2, 2.0));
+        else if (v_preset == 4 && u_pill == 1) {
+          // an even bar with rounded ends, in pixels
+          vec2 q = v_q * v_size;
+          float r = v_size.y * 0.5;
+          float d = length(vec2(max(abs(q.x) - (v_size.x * 0.5 - r), 0.0), q.y)) - r;
+          a = clamp(0.5 - d, 0.0, 1.0);
+        }
+        else if (v_preset == 4) a = pow(clamp(v_q.x + 0.5, 0.0, 1.0), u_tailPow)
+          * (u_flat == 1 ? clamp((0.5 - abs(v_q.y)) * v_size.y + 0.5, 0.0, 1.0) : exp(-pow(v_q.y * 3.2, 2.0)));
         else { float r = length(v_q) * 2.0; a = smoothstep(1.0, 0.25, r); }
-        a *= v_alpha * v_col.a * u_opacity;
+        a *= (u_pill == 1 && v_preset == 4 ? 1.0 : v_alpha) * v_col.a * u_opacity;   // pills keep their full colour
         o = vec4(rgb * a, a);
       }`);
 
@@ -244,7 +279,8 @@
         float d = q.y - edge;
         float a = clamp(d + 0.5, 0.0, 1.0);
         vec4 c = mix(u_color, u_color2, clamp(d / max(1.0, u_grad), 0.0, 1.0));
-        float sh = d < 0.0 ? u_shadow * exp(d / max(1.0, u_shadowW)) : 0.0;
+        // the shadow falls off like a bell above the edge, the way a cut-paper layer's does
+        float sh = d < 0.0 ? u_shadow * exp(-pow(d / max(1.0, u_shadowW), 2.0)) : 0.0;
         float fill = a * c.a;
         o = vec4(c.rgb * fill, fill + sh * (1.0 - fill)) * u_opacity;
       }`);
@@ -395,9 +431,20 @@
         c = mix(c, c * u_tint.rgb, u_tintAmount);
         o = vec4(clamp(c, 0.0, 1.0), 1.0);
       }`);
-    P.grain = program(FULL_VS, HEAD + `in vec2 v_uv; uniform sampler2D u_tex; uniform float u_amount; uniform float u_frame; uniform vec2 u_res; out vec4 o;
-      float h(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233)) + u_frame * 0.618) * 43758.5453); }
-      void main() { vec3 c = texture(u_tex, v_uv).rgb; float n = h(floor(v_uv * u_res)) - 0.5; o = vec4(clamp(c + n * u_amount, 0.0, 1.0), 1.0); }`);
+    P.grain = program(FULL_VS, HEAD + `in vec2 v_uv; uniform sampler2D u_tex; uniform float u_amount; uniform float u_frame; uniform vec2 u_res;
+      uniform int u_mult; out vec4 o;
+      // an integer hash: the sine one showed stripes when the grain was strong
+      float h(vec2 p) {
+        uvec2 q = uvec2(ivec2(p) + 65536) * uvec2(1597334673u, 3812015801u);
+        uint n = (q.x ^ q.y) + uint(u_frame) * 747796405u;
+        n ^= n >> 16; n *= 2246822519u; n ^= n >> 13; n *= 3266489917u; n ^= n >> 16;
+        return float(n) / 4294967295.0;
+      }
+      void main() {
+        vec3 c = texture(u_tex, v_uv).rgb; float n = h(floor(v_uv * u_res)) - 0.5;
+        // "multiply": the grain scales with the brightness, so black stays black
+        o = vec4(clamp(u_mult == 1 ? c * (1.0 + 2.0 * n * u_amount) : c + n * u_amount, 0.0, 1.0), 1.0);
+      }`);
     P.threshold = program(FULL_VS, HEAD + `in vec2 v_uv; uniform sampler2D u_tex; uniform float u_threshold; out vec4 o;
       void main() { vec3 c = texture(u_tex, v_uv).rgb; float l = max(c.r, max(c.g, c.b)); o = vec4(c * smoothstep(u_threshold, u_threshold + 0.15, l), 1.0); }`);
     P.add = program(FULL_VS, HEAD + `in vec2 v_uv; uniform sampler2D u_tex; uniform sampler2D u_add; uniform float u_strength; out vec4 o;
@@ -416,6 +463,26 @@
       void main() {
         vec2 d = (v_uv - 0.5) * u_amount;
         o = vec4(texture(u_tex, v_uv + d).r, texture(u_tex, v_uv).g, texture(u_tex, v_uv - d).b, 1.0);
+      }`);
+
+    // Water over the whole frame: the same two drifting samples of a tiled normal map as the image ripple.
+    P.ripple = program(FULL_VS, HEAD + `in vec2 v_uv; uniform sampler2D u_tex; uniform sampler2D u_normal; uniform vec2 u_tiles;
+      uniform vec4 u_drift; uniform vec2 u_amount; out vec4 o;
+      void main() {
+        vec3 n1 = texture(u_normal, (v_uv + u_drift.xy) * u_tiles).xyz * 2.0 - 1.0;
+        vec3 n2 = texture(u_normal, (v_uv * 1.333 + u_drift.zw) * u_tiles).xyz * 2.0 - 1.0;
+        o = texture(u_tex, v_uv + normalize(vec3(n1.xy + n2.xy, n1.z)).xy * u_amount);
+      }`);
+
+    // Barrel (amount < 0) or pincushion lens, worked out in a frame of its own aspect that covers the screen
+    // (u_fscale: how much of that frame the screen shows), so a lens made for 16:9 bends the same on an ultrawide.
+    P.lens = program(FULL_VS, HEAD + `in vec2 v_uv; uniform sampler2D u_tex; uniform float u_amount; uniform vec2 u_fscale;
+      uniform float u_faspect; out vec4 o;
+      void main() {
+        vec2 k = vec2(u_faspect, 1.0) * 2.0;
+        vec2 c = (v_uv - 0.5) * u_fscale * k;
+        vec2 f = c * (1.0 + u_amount * dot(c, c)) / k;
+        o = texture(u_tex, 0.5 + f / u_fscale);
       }`);
   }
 
@@ -570,7 +637,9 @@
     W = await res.json();
     if (W.format !== 'fundo-vivo') throw new Error('não é um wallpaper do Fundo Vivo');
     if (W.version !== 1) warn(`versão ${W.version} do formato; este runtime conhece a 1`);
-    LOOP = clamp(num(W.loop, 20), 1, 120);
+    // up to an hour; past two minutes the host never turns it into a video, so it always plays live
+    LOOP = clamp(num(W.loop, 20), 1, 3600);
+    if (LOOP > 120) realtime = true;
     W.layers = Array.isArray(W.layers) ? W.layers : [];
     W.effects = Array.isArray(W.effects) ? W.effects : [];
     W.layers.forEach((l, i) => {
@@ -590,11 +659,18 @@
       if (l.type === 'text' && num(l.reveal, 0) > 0) l._reveal = snapPeriod(l.reveal, `camada ${l.name || i + 1}, digitação`);
     });
     if (W.effects.some((e) => e.band != null)) realtime = true;
-    await Promise.all(W.layers.filter((l) => l.type === 'image' && l.src).map(async (l) => {
-      if (images.has(l.src)) return;
+    const sources = new Set();
+    for (const l of W.layers) {
+      if (l.type !== 'image') continue;
+      if (l.src) sources.add(l.src);
+      for (const extra of [l.ripple, l.mask, l.colorMask]) if (extra && typeof extra.src === 'string') sources.add(extra.src);
+    }
+    for (const e of W.effects) if (typeof e.src === 'string') sources.add(e.src);
+    await Promise.all([...sources].map(async (src) => {
+      if (images.has(src)) return;
       const img = new Image();
-      img.src = l.src;
-      try { await img.decode(); } catch (e) { warn(`imagem ${l.src} não abriu`); return; }
+      img.src = src;
+      try { await img.decode(); } catch (e) { warn(`imagem ${src} não abriu`); return; }
       const t = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, t);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -604,7 +680,12 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      images.set(l.src, { tex: t, w: img.naturalWidth, h: img.naturalHeight });
+      images.set(src, { tex: t, w: img.naturalWidth, h: img.naturalHeight });
+    }));
+    // fonts shipped inside the package: a text layer names the family in `font` and the file in `fontFile`
+    await Promise.all(W.layers.filter((l) => l.type === 'text' && typeof l.fontFile === 'string' && typeof l.font === 'string').map(async (l) => {
+      try { const ff = new FontFace(l.font, `url("${encodeURI(l.fontFile)}")`); await ff.load(); document.fonts.add(ff); }
+      catch (e) { warn(`fonte ${l.fontFile} não abriu`); }
     }));
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
   }
@@ -761,9 +842,37 @@
       const y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
       return [x1 * cr - y2 * sr, x1 * sr + y2 * cr, z2];
     };
-    const project = (p) => { const q = turn(...p); return [cx + q[0] * unit, cy - q[1] * unit]; };
+    // perspective: a camera `perspective` cube-widths away (0 = flat, orthographic)
+    const camD = num(l.perspective, 0) * n;
+    const project = (p) => {
+      const q = turn(...p);
+      const f = camD > 0 ? camD / Math.max(0.1, camD - q[2]) : 1;
+      return [cx + q[0] * unit * f, cy - q[1] * unit * f];
+    };
     const light = (() => { const L = [-0.35, 0.75, 0.6], m = Math.hypot(...L); return L.map((c) => c / m); })();
     const lit = (c, nrm) => shade(c, 0.62 + 0.5 * Math.max(0, nrm[0] * light[0] + nrm[1] * light[1] + nrm[2] * light[2]));
+    // optional colour across the whole cube on screen (two colours along a direction that turns), shaded per face
+    const grad = l.gradient && Array.isArray(l.gradient.colors) ? l.gradient : null;
+    const gA = grad ? color(grad.colors[0], [1, 1, 1, 1]) : null, gB = grad ? color(grad.colors[grad.colors.length - 1], [1, 1, 1, 1]) : null;
+    const gAng = grad ? (num(grad.angle, 0) * Math.PI / 180 + TAU * Math.round(num(grad.turns, 0)) * (tl / LOOP)) : 0;
+    const gSpan = n * unit * 0.9;
+    const vcol = (sx, sy, k) => {
+      const t = clamp(0.5 + ((sx - cx) * Math.cos(gAng) + (sy - cy) * Math.sin(gAng)) / (2 * gSpan), 0, 1);
+      const c = [gA[0] + (gB[0] - gA[0]) * t, gA[1] + (gB[1] - gA[1]) * t, gA[2] + (gB[2] - gA[2]) * t, 1];
+      return shade(c, k);
+    };
+    const quad = (pts, nrm, base, dim) => {
+      const s = pts.map(project);
+      if (!grad) { pushQuad(s.flat(), shade(lit(base, nrm), dim)); return; }
+      const k = (0.62 + 0.5 * Math.max(0, nrm[0] * light[0] + nrm[1] * light[1] + nrm[2] * light[2])) * dim;
+      const c = s.map(([x, y]) => vcol(x, y, k));
+      pushTri(s[0][0], s[0][1], s[1][0], s[1][1], s[2][0], s[2][1], c[0], c[1], c[2]);
+      pushTri(s[0][0], s[0][1], s[2][0], s[2][1], s[3][0], s[3][1], c[0], c[2], c[3]);
+    };
+    // a face shows when it turns towards the camera (with perspective, towards the camera's position)
+    const facing = (tn, centre) => camD > 0
+      ? tn[0] * -centre[0] + tn[1] * -centre[1] + tn[2] * (camD - centre[2]) > 0
+      : tn[2] > 0;
     // the six faces of a box: outward normal, its colour, its four corners
     const faces = (x0, y0, z0, x1, y1, z1) => [
       [[0, 1, 0], top, [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]],
@@ -776,8 +885,9 @@
     const drawBox = (box, dim) => {
       for (const [nrm, c, pts] of faces(...box)) {
         const tn = turn(...nrm);
-        if (tn[2] <= 0) continue;   // facing away
-        pushQuad(pts.flatMap(project), shade(lit(c, tn), dim));
+        const mid = turn((pts[0][0] + pts[2][0]) / 2, (pts[0][1] + pts[2][1]) / 2, (pts[0][2] + pts[2][2]) / 2);
+        if (!facing(tn, mid)) continue;
+        quad(pts, tn, c, dim);
       }
     };
     const h = n / 2, lo = gap / 2, hi = 1 - gap / 2;
@@ -787,7 +897,7 @@
     let band = 0;
     for (const [axis, sign] of [[1, 1], [1, -1], [0, 1], [0, -1], [2, 1], [2, -1]]) {
       const nrm = [0, 0, 0]; nrm[axis] = sign;
-      if (turn(...nrm)[2] <= 0) { band += n * n; continue; }
+      if (!facing(turn(...nrm), turn(nrm[0] * h, nrm[1] * h, nrm[2] * h))) { band += n * n; continue; }
       const [ua, ub] = [0, 1, 2].filter((k) => k !== axis);
       for (let a = 0; a < n; a++)
         for (let b = 0; b < n; b++) {
@@ -824,6 +934,80 @@
       }
     }
   }
+  function hsl(h, s, li) {
+    const a = s * Math.min(li, 1 - li), f = (n) => { const k = (n + h / 30) % 12; return li - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+    return [f(0), f(8), f(4), 1];
+  }
+  let tentaclePrev = null;
+  /**
+   * The "tentacles" style: dots fixed over the screen, each with a reach of its own; every dot that can reach the
+   * cursor throws a thin curved line to it (each line its own hue, cyan to blue, added as light) and turns white,
+   * the rest stay small dark cyan specks; a solid light-blue disc sits on the cursor, bigger while it moves. With no
+   * mouse the cursor runs a figure eight (a lemniscate) a whole number of times per loop.
+   */
+  function drawTentacleField(l, v, S, BX, BY, BW, BH, offX, offY, tl, ph) {
+    const count = clamp(Math.round(num(l.count, 500)), 1, 3000);
+    const px = S / 1440;   // the original's pixel sizes are for a 1440-high screen
+    const minR = num(l.minReach, 0.035) * S, maxR = num(l.maxReach, 0.21) * S;
+    const boost = 1 + num(l.audio?.amount, 0) * level(l.audio?.band ?? 'bass');
+    // the disc grows with how far the cursor moves per step of the original (it stepped about 120 times a second)
+    let fx, fy, moved;
+    if (pointer.seen) {
+      fx = (pointer.tx * 0.5 + 0.5) * canvas.width; fy = (pointer.ty * 0.5 + 0.5) * canvas.height;
+      moved = tentaclePrev ? Math.hypot(fx - tentaclePrev[0], fy - tentaclePrev[1]) / 2 : 0;
+      tentaclePrev = [fx, fy];
+    } else {
+      const turns = Math.max(1, Math.round(num(l.turns, 10))), t = TAU * turns * ph, a = BH / 2 - 10 * px;
+      const at = (q) => { const den = Math.sin(q) ** 2 + 1; return [a * Math.SQRT2 * Math.cos(q) / den, a * Math.SQRT2 * Math.cos(q) * Math.sin(q) / den]; };
+      const p0 = at(t), p1 = at(t + 0.001);
+      fx = BX + BW / 2 + p0[0]; fy = BY + BH / 2 + p0[1];
+      // per step: the path's speed times the original's 0.01 radians a step
+      moved = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / 0.001 * 0.01;
+    }
+    // its target trails the cursor by a tenth a step, so the disc measured about twice the step
+    moved = Math.min(50 * px, moved * 2);
+    const lines = [];
+    for (let k = 0; k < count; k++) {
+      const r = hash(k, 31);
+      const x = BX + hash(k, 21) * BW + offX, y = BY + hash(k, 22) * BH + offY;
+      const reach = (minR + (maxR - minR) * hash(k, 32)) * boost;
+      const d = Math.hypot(fx - x, fy - y);
+      if (d <= reach) {
+        lines.push([x, y, d, reach, r, k]);
+        pushDisc(x, y, (2 * r + 1) * px, [1, 1, 1, 1]);
+      } else if (r > 0.05) pushDisc(x, y, r * 2 * px, [0, 0.545, 0.545, 1]);
+    }
+    pushDisc(fx, fy, 5 * px + moved, [0.6, 0.8, 1, 1]);
+    for (const [x, y, d, reach, r, k] of lines) {
+      // the slack (reach longer than the distance) bends the line into an S that curls in near the cursor
+      const ux = (fx - x) / (d || 1), uy = (fy - y) / (d || 1);
+      const slack = Math.min(1.4, (reach - d) / Math.max(1, d) + 0.25), side = hash(k, 33) < 0.5 ? 1 : -1;
+      const a1 = side * (0.5 + 0.9 * hash(k, 34)) * slack, a2 = -side * (0.8 + 1.2 * hash(k, 35)) * slack;
+      const c1 = [x + (ux * Math.cos(a1) - uy * Math.sin(a1)) * reach * 0.45, y + (ux * Math.sin(a1) + uy * Math.cos(a1)) * reach * 0.45];
+      const c2 = [fx - (ux * Math.cos(a2) - uy * Math.sin(a2)) * reach * 0.35, fy - (ux * Math.sin(a2) + uy * Math.cos(a2)) * reach * 0.35];
+      // plus a wave along it, so the line wiggles two or three times on its way like the original's chains
+      const wAmp = reach * 0.07 * slack * (0.5 + hash(k, 36)), wPh = hash(k, 37), wN = 0.5 + 0.7 * hash(k, 38);
+      const pts = [];
+      for (let s = 0; s <= 24; s++) {
+        const t = s / 24, m = 1 - t;
+        const bx = m * m * m * x + 3 * m * m * t * c1[0] + 3 * m * t * t * c2[0] + t * t * t * fx;
+        const by = m * m * m * y + 3 * m * m * t * c1[1] + 3 * m * t * t * c2[1] + t * t * t * fy;
+        const off = wAmp * Math.sin(TAU * (wN * t + wPh)) * Math.sin(Math.PI * t);
+        pts.push([bx - uy * off, by + ux * off]);
+      }
+      pushLine(pts, Math.max(0.5, r * 1.3) * px, hsl(r * 60 + 180, 1, r * 0.6 + 0.25));
+    }
+  }
+  /** A solid disc, its rim softened over one pixel. */
+  function pushDisc(x, y, r, c) {
+    const rim = [c[0], c[1], c[2], 0];
+    for (let k = 0; k < 16; k++) {
+      const a0 = k / 16 * TAU, a1 = (k + 1) / 16 * TAU, c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+      pushTri(x, y, x + c0 * r, y + s0 * r, x + c1 * r, y + s1 * r, c, c, c);
+      pushTri(x + c0 * r, y + s0 * r, x + c0 * (r + 1), y + s0 * (r + 1), x + c1 * r, y + s1 * r, c, rim, c);
+      pushTri(x + c1 * r, y + s1 * r, x + c0 * (r + 1), y + s0 * (r + 1), x + c1 * (r + 1), y + s1 * (r + 1), c, rim, rim);
+    }
+  }
   /** A lightning path between two points by midpoint displacement; the same seed gives the same bolt. */
   function boltPoints(x0, y0, x1, y1, seed, rough) {
     let pts = [[x0, y0], [x1, y1]];
@@ -847,6 +1031,7 @@
    * current wanders on a loop of its own.
    */
   function drawElectric(l, v, S, BX, BY, BW, BH, offX, offY, tl, ph) {
+    if (l.style === 'tentacles') { drawTentacleField(l, v, S, BX, BY, BW, BH, offX, offY, tl, ph); return; }
     const count = clamp(Math.round(num(l.count, 120) * BW * BH / (1920 * 1080)), 1, 2000);
     const col = color(l.color || '#8fd0ff'), core = color(l.core || '#ffffff');
     const boost = 1 + num(l.audio?.amount, 0) * level(l.audio?.band ?? 'bass');
@@ -975,7 +1160,50 @@
         gl.uniformMatrix3fv(P.image.u.u_m, false, rectMatrix(cx, cy, qw, qh, v.rotation, CW, CH));
         gl.uniform4fv(P.image.u.u_uv, uv);
         tex(0, img);
+        // scrolling wraps the image around: a whole number of wraps per loop on each axis
+        const scroll = Array.isArray(l.scroll) ? l.scroll : null;
+        const wrap = scroll ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+        gl.uniform2f(P.image.u.u_scroll, scroll ? Math.round(num(scroll[0], 0)) * ph : 0, scroll ? Math.round(num(scroll[1], 0)) * ph : 0);
         gl.uniform1i(P.image.u.u_tex, 0);
+        const rp = l.ripple && images.get(l.ripple.src);
+        gl.uniform1i(P.image.u.u_ripple, rp ? 1 : 0);
+        if (rp) {
+          // the two samples drift apart; on a circle (same speed, `drift` in image widths per second) so the loop closes
+          const tiles = Array.isArray(l.ripple.tiles) ? l.ripple.tiles : [1, 1];
+          const R = num(l.ripple.drift, 0.002) * Math.SQRT2 * LOOP / TAU;
+          const dx = R * (Math.cos(TAU * ph) - 1), dy = R * Math.sin(TAU * ph);
+          tex(1, rp);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+          gl.uniform1i(P.image.u.u_normal, 1);
+          gl.uniform2f(P.image.u.u_tiles, num(tiles[0], 1), num(tiles[1], 1));
+          gl.uniform4f(P.image.u.u_drift, dx, dy, -dx, -dy);
+          gl.uniform1f(P.image.u.u_ramount, prop(v, l, 'rippleAmount', num(l.ripple.amount, 0.005)));
+        } else gl.uniform1i(P.image.u.u_normal, 0);
+        // masks: an image of their own sliding a whole number of wraps per loop, read by their red channel
+        const maskOf = (m, unit, on, sampler, scrollU) => {
+          const mi = m && images.get(m.src);
+          gl.uniform1i(P.image.u[on], mi ? 1 : 0);
+          gl.uniform1i(P.image.u[sampler], mi ? unit : 0);
+          if (!mi) return;
+          tex(unit, mi);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+          const s = Array.isArray(m.scroll) ? m.scroll : [0, 0];
+          gl.uniform2f(P.image.u[scrollU], Math.round(num(s[0], 0)) * ph, Math.round(num(s[1], 0)) * ph);
+        };
+        maskOf(l.mask, 2, 'u_maskOn', 'u_mask', 'u_mscroll');
+        maskOf(l.colorMask, 3, 'u_tmOn', 'u_tmask', 'u_tmscroll');
+        if (l.colorMask) { const tc = color(l.colorMask.color, [1, 1, 1, 1]); gl.uniform3f(P.image.u.u_tmcolor, tc[0], tc[1], tc[2]); }
+        const lt = l.light && typeof l.light === 'object' ? l.light : null;
+        gl.uniform1i(P.image.u.u_lightOn, lt ? 1 : 0);
+        if (lt) {
+          gl.uniform3f(P.image.u.u_lpos, num(lt.x, 1), num(lt.y, 0), Math.max(0.001, num(lt.height, 0.25)));
+          gl.uniform3f(P.image.u.u_light, num(lt.ambient, 0.5), prop(v, l, 'lightIntensity', num(lt.intensity, 0.5)), num(lt.radius, 1));
+          gl.uniform1f(P.image.u.u_aspect, img.w / img.h);
+        }
         gl.uniform4fv(P.image.u.u_tint, color(l.tint, [1, 1, 1, 1]));
         gl.uniform1f(P.image.u.u_opacity, v.opacity);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -996,6 +1224,14 @@
         gl.uniform4fv(P.image.u.u_uv, [0, 0, 1, 1]);
         tex(0, tx);
         gl.uniform1i(P.image.u.u_tex, 0);
+        gl.uniform1i(P.image.u.u_ripple, 0);
+        gl.uniform1i(P.image.u.u_normal, 0);
+        gl.uniform2f(P.image.u.u_scroll, 0, 0);
+        gl.uniform1i(P.image.u.u_maskOn, 0);
+        gl.uniform1i(P.image.u.u_mask, 0);
+        gl.uniform1i(P.image.u.u_tmOn, 0);
+        gl.uniform1i(P.image.u.u_tmask, 0);
+        gl.uniform1i(P.image.u.u_lightOn, 0);
         gl.uniform4fv(P.image.u.u_tint, [1, 1, 1, 1]);
         gl.uniform1f(P.image.u.u_opacity, v.opacity);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -1072,6 +1308,14 @@
         gl.uniform1i(u.u_colorX, l.colorBy === 'x' ? 1 : 0);
         gl.uniform1f(u.u_shift, Math.round(num(l.colorShift, 0)) * ph);   // whole slides per loop
         gl.uniform1f(u.u_tips, clamp(num(l.tips, 0), 0, 1));
+        gl.uniform1f(u.u_spread, clamp(num(l.speedSpread, 0.4), 0, 0.95));
+        const thick = Array.isArray(l.thickness) ? l.thickness : [0.6, 1.4];
+        gl.uniform2f(u.u_thick, num(thick[0], 0.6), num(thick[1], 1.4));
+        gl.uniform1i(u.u_pill, l.shape === 'pill' ? 1 : 0);
+        gl.uniform1f(u.u_lspread, clamp(num(l.lengthSpread, 1), 0, 1.9));
+        gl.uniform1f(u.u_tipLen, clamp(num(l.tipLength, 0.18), 0.005, 1));
+        gl.uniform1f(u.u_tailPow, Math.max(0.1, num(l.tail, 1.6)));
+        gl.uniform1i(u.u_flat, l.profile === 'flat' ? 1 : 0);
         gl.uniform2f(u.u_offset, offX, offY);
         gl.uniform4fv(u.u_color, color(l.color, l.preset === 'fireflies' ? [1, 0.85, 0.4, 1] : [1, 1, 1, 1]));
         gl.uniform1f(u.u_opacity, v.opacity);
@@ -1234,7 +1478,10 @@
         // Live: a new grain every 1/24 s, the same sequence every loop. Rendered to video: one fixed grain, because
         // noise that changes in every pixel is the worst case for an encoder (measured: 61 -> 8.6 Mbit/s on Neve).
         const frame = MODE === 'render' ? 0 : Math.floor(tl * 24) % Math.max(1, Math.round(LOOP * 24));
-        full(P.grain, (u) => { tex(0, src); gl.uniform1i(u.u_tex, 0); gl.uniform1f(u.u_amount, num(e.amount, 0.05)); gl.uniform1f(u.u_frame, frame); gl.uniform2f(u.u_res, CW, CH); }, dst); swap();
+        full(P.grain, (u) => {
+          tex(0, src); gl.uniform1i(u.u_tex, 0); gl.uniform1f(u.u_amount, num(e.amount, 0.05)); gl.uniform1f(u.u_frame, frame); gl.uniform2f(u.u_res, CW, CH);
+          gl.uniform1i(u.u_mult, e.mode === 'multiply' ? 1 : 0);
+        }, dst); swap();
       } else if (e.type === 'glow' || e.type === 'rays') {
         const glow = e.type === 'glow';
         const boost = e.band != null ? 1 + num(e.bandAmount, 1) * level(e.band) : 1;
@@ -1259,6 +1506,40 @@
           tex(0, src); gl.uniform1i(u.u_tex, 0);
           gl.uniform2f(u.u_off, Math.cos(dirA) * amp, Math.sin(dirA) * amp);
           gl.uniform1f(u.u_zoom, 1 + num(e.amount, 0.006) * 2.5);
+        }, dst); swap();
+      } else if (e.type === 'ripple') {
+        const nm = images.get(e.src);
+        if (!nm) continue;
+        const tiles = Array.isArray(e.tiles) ? e.tiles : [1, 1];
+        const amt = Array.isArray(e.amount) ? e.amount : [num(e.amount, 0.005), num(e.amount, 0.005)];
+        // the samples drift apart on one circle and slide together on another, so the loop closes
+        const R = num(e.drift, 0.002) * Math.SQRT2 * LOOP / TAU;
+        const sl = Array.isArray(e.slide) ? e.slide : [0, 0];
+        const Rs = Math.hypot(num(sl[0], 0), num(sl[1], 0)) * LOOP / TAU, sa = Math.atan2(num(sl[1], 0), num(sl[0], 0));
+        const c1 = Math.cos(TAU * ph), s1 = Math.sin(TAU * ph);
+        const dx = R * (c1 - 1), dy = R * s1;
+        const sx = Rs * (Math.cos(sa) * s1 - Math.sin(sa) * (1 - c1)), sy = Rs * (Math.sin(sa) * s1 + Math.cos(sa) * (1 - c1));
+        const boost = e.band != null ? 1 + num(e.bandAmount, 1) * level(e.band) : 1;
+        full(P.ripple, (u) => {
+          tex(0, src); gl.uniform1i(u.u_tex, 0);
+          tex(1, nm);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+          gl.uniform1i(u.u_normal, 1);
+          gl.uniform2f(u.u_tiles, num(tiles[0], 1), num(tiles[1], 1));
+          gl.uniform4f(u.u_drift, dx + sx, dy + sy, -dx + sx, -dy + sy);
+          gl.uniform2f(u.u_amount, num(amt[0], 0.005) * boost, num(amt[1], 0.005) * boost);
+        }, dst); swap();
+      } else if (e.type === 'lens') {
+        const fr = Array.isArray(e.frame) ? e.frame : [CW, CH];
+        const fa = num(fr[0], CW) / Math.max(1, num(fr[1], CH)), sa = CW / CH;
+        // the frame covers the screen: the screen shows all of its narrower side
+        const fscale = fa > sa ? [sa / fa, 1] : [1, fa / sa];
+        full(P.lens, (u) => {
+          tex(0, src); gl.uniform1i(u.u_tex, 0);
+          gl.uniform1f(u.u_amount, num(e.amount, -0.05));
+          gl.uniform2f(u.u_fscale, fscale[0], fscale[1]);
+          gl.uniform1f(u.u_faspect, fa);
         }, dst); swap();
       } else if (e.type === 'chromatic') {
         const amt = num(e.amount, 0.002) + (e.band != null ? num(e.bandAmount, 0.01) * level(e.band) : 0);

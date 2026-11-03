@@ -140,16 +140,20 @@ public sealed class WebWallpaper : IWallpaper
         }
     }
 
+    // twice, 8 s apart: the frames between the two are the steady rate, without the page's start-up in them
     async Task ReportStatsAsync()
     {
-        await Task.Delay(8000);
-        if (_web == null) return;
-        try
+        for (int round = 1; round <= 2; round++)
         {
-            string stats = await _web.ExecuteScriptAsync("JSON.stringify(window.__fundoVivo)");
-            Log.Write($"web stats {Path.GetFileName(_folder)}: {stats} input={(InputWindow != IntPtr.Zero)}");
+            await Task.Delay(8000);
+            if (_web == null) return;
+            try
+            {
+                string stats = await _web.ExecuteScriptAsync("JSON.stringify(window.__fundoVivo)");
+                Log.Write($"web stats{(round == 2 ? "2" : "")} {Path.GetFileName(_folder)}: {stats} input={(InputWindow != IntPtr.Zero)}");
+            }
+            catch (Exception e) { Log.Write("web stats: " + e.Message); }
         }
-        catch (Exception e) { Log.Write("web stats: " + e.Message); }
     }
 
     void Post(string type, JsonNode data)
