@@ -287,6 +287,11 @@ coleta logo depois de tirar um wallpaper).
 
 ## 6. Pendente
 
+- **Inglês (pedido dele em 03/11/2026, para 04/11/2026; ele esperava que já viesse assim):** a interface é toda em
+  português escrita direto no XAML e no código. Passar os textos para uma tabela pt/en que segue o idioma do Windows,
+  como a ilha e o relógio, com o nome "Living Wallpaper" em inglês (é o nome do app no setup e no site do
+  `desktop-glow`). Depois: pacote novo e setup novo do `desktop-glow`.
+
 - **Feito, wallpapers próprios** (2.8.0, pedido dele): `night-tide`, `aurora-curtain`, `dusk-layers`, `sparks` e `sound-cube` em
   `examples/`, ao lado dos quatro da 2.0.0. Só camadas procedurais (nenhuma imagem nem fonte de ninguém); cada um mostra
   um recurso (mar, riscos com cores sorteadas, ondas, eletricidade, cubo com barras do som). A `preview.jpg` sai do
