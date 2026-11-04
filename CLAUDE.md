@@ -228,7 +228,7 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
 - Só gerar o pacote, sem GitHub: `ferramentas\publicar-versao.ps1 -SoGerar [pasta]` compila, empacota em
   `build\release\fundo-vivo-<versão>.zip` (ou na pasta dada; com `notas-<versão>.md` e `SHA256-<versão>.txt`; os pacotes
   das outras versões ficam), abre a cópia desempacotada e confere que o Windows deixa ela rodar. É o pacote que o
-  setup do `pacote-windows-bonito` usa (ele chama sem pasta e procura em `build\release`).
+  setup do `desktop-glow` usa (ele chama sem pasta e procura em `build\release`).
 - **Formato de release comum aos apps do setup (2.9.1, pedido dele em 03/11/2026)**: o do `clave`, que o
   `relogio-mond` e o `ilha-cursors` já seguem (a ilha ainda não tinha `versao.json` nesse dia): `versao.json` na raiz com `versao` e `repositorio`, pacote
   `<repo>-<versão>.zip`, tag `vX.Y.Z`, título "Fundo Vivo X.Y.Z", notas da seção do changelog, `--quit` para fechar. O
