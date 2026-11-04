@@ -4,34 +4,48 @@ using System.Text;
 namespace FundoVivo.Core;
 
 /// <summary>
-/// Tags as the library shows them: Wallpaper Engine's fixed English tags translated, the user's own tags as typed,
+/// Tags as the library shows them: Wallpaper Engine's fixed English tags through the pt/en tables (late_tag_*), the
+/// user's own tags as typed,
 /// and one key per tag that ignores case and accents, so "anime", "Anime" and "ÁNIME" are the same tag.
 /// </summary>
 public static class Tags
 {
-    static readonly Dictionary<string, string> WallpaperEngineNames = new(StringComparer.OrdinalIgnoreCase)
+        static readonly Dictionary<string, Func<string>> WallpaperEngineNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Abstract"] = "Abstrato", ["Animal"] = "Animais", ["Anime"] = "Anime", ["Cartoon"] = "Desenho", ["CGI"] = "CGI",
-        ["Cyberpunk"] = "Cyberpunk", ["Fantasy"] = "Fantasia", ["Game"] = "Jogo", ["Girls"] = "Garotas", ["Guys"] = "Garotos",
-        ["Landscape"] = "Paisagem", ["Medieval"] = "Medieval", ["Memes"] = "Memes", ["MMD"] = "MMD", ["Music"] = "Música",
-        ["Nature"] = "Natureza", ["Pixel art"] = "Pixel art", ["Relaxing"] = "Relaxante", ["Retro"] = "Retrô",
-        ["Sci-Fi"] = "Ficção científica", ["Sports"] = "Esportes", ["Technology"] = "Tecnologia", ["Television"] = "TV",
-        ["Vehicle"] = "Veículos", ["Unspecified"] = "Sem categoria",
+        ["Anime"] = () => "Anime", ["CGI"] = () => "CGI", ["Cyberpunk"] = () => "Cyberpunk", ["Medieval"] = () => "Medieval",
+        ["Memes"] = () => "Memes", ["MMD"] = () => "MMD", ["Pixel art"] = () => "Pixel art",
+        ["Abstract"] = () => Loc.T("late_tag_abstract"), ["Animal"] = () => Loc.T("late_tag_animal"),
+        ["Cartoon"] = () => Loc.T("late_tag_cartoon"), ["Fantasy"] = () => Loc.T("late_tag_fantasy"),
+        ["Game"] = () => Loc.T("late_tag_game"), ["Girls"] = () => Loc.T("late_tag_girls"), ["Guys"] = () => Loc.T("late_tag_guys"),
+        ["Landscape"] = () => Loc.T("late_tag_landscape"), ["Music"] = () => Loc.T("late_tag_music"),
+        ["Nature"] = () => Loc.T("late_tag_nature"), ["Relaxing"] = () => Loc.T("late_tag_relaxing"),
+        ["Retro"] = () => Loc.T("late_tag_retro"), ["Sci-Fi"] = () => Loc.T("late_tag_scifi"),
+        ["Sports"] = () => Loc.T("late_tag_sports"), ["Technology"] = () => Loc.T("late_tag_technology"),
+        ["Television"] = () => Loc.T("late_tag_television"), ["Vehicle"] = () => Loc.T("late_tag_vehicle"),
+        ["Unspecified"] = () => Loc.T("late_tag_unspecified"),
     };
 
-    static readonly Dictionary<string, string> Ratings = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>Wallpaper Engine's content ratings, as the position in <see cref="RatingOrder"/>.</summary>
+    static readonly Dictionary<string, int> Ratings = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Everyone"] = "Livre", ["Questionable"] = "Questionável", ["Mature"] = "Adulto",
+        ["Everyone"] = 0, ["Questionable"] = 1, ["Mature"] = 2,
     };
 
-    /// <summary>The order the rating chips appear in.</summary>
-    public static readonly string[] RatingOrder = { "Livre", "Questionável", "Adulto" };
+    /// <summary>The rating labels of the current language, in the order the rating chips appear in.</summary>
+    public static string[] RatingOrder => new[] { Loc.T("core_rating_everyone"), Loc.T("core_rating_questionable"), Loc.T("core_rating_mature") };
 
-    public static string FromWallpaperEngine(string tag) =>
-        string.IsNullOrWhiteSpace(tag) ? null : WallpaperEngineNames.TryGetValue(tag.Trim(), out var pt) ? pt : tag.Trim();
+    /// <summary>The tag as shown in the current language; tags that are not in the table stay as the project file has them.</summary>
+    public static string FromWallpaperEngine(string tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag)) return null;
+        // In English the tags show exactly as the project file has them; Portuguese gets the translated names.
+        if (Loc.English) return tag.Trim();
+        return WallpaperEngineNames.TryGetValue(tag.Trim(), out var name) ? name() : tag.Trim();
+    }
 
+    /// <summary>The rating label in the current language, or null when the project does not say.</summary>
     public static string Rating(string contentRating) =>
-        contentRating != null && Ratings.TryGetValue(contentRating.Trim(), out var pt) ? pt : null;
+        contentRating != null && Ratings.TryGetValue(contentRating.Trim(), out int i) ? RatingOrder[i] : null;
 
     public static string Key(string tag)
     {

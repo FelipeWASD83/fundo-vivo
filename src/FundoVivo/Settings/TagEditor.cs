@@ -25,7 +25,7 @@ public sealed class TagEditor : Window
     public TagEditor(Window owner, string title, IEnumerable<string> current, IEnumerable<string> existing)
     {
         Owner = owner;
-        Title = "Tags de " + title;
+        Title = Loc.T("dlg_tags_title", title);
         Width = 460;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -38,7 +38,7 @@ public sealed class TagEditor : Window
 
         var root = new StackPanel { Margin = new Thickness(20, 18, 20, 18) };
         root.Children.Add(new TextBlock { Text = title, Style = (Style)FindResource("H2"), TextTrimming = TextTrimming.CharacterEllipsis });
-        root.Children.Add(new TextBlock { Text = "Digite e aperte Enter. As tags que já existem aparecem como sugestão.", Style = (Style)FindResource("Muted"), Margin = new Thickness(0, 0, 0, 12) });
+        root.Children.Add(new TextBlock { Text = Loc.T("dlg_tags_hint"), Style = (Style)FindResource("Muted"), Margin = new Thickness(0, 0, 0, 12) });
         root.Children.Add(_chips);
 
         var border = new Border
@@ -52,8 +52,8 @@ public sealed class TagEditor : Window
         root.Children.Add(_popup);
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
-        var cancel = new Button { Content = "Cancelar", Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
-        var save = new Button { Content = "Salvar", Style = (Style)FindResource("Primary") };
+        var cancel = new Button { Content = Loc.T("dlg_cancel"), Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
+        var save = new Button { Content = Loc.T("dlg_save"), Style = (Style)FindResource("Primary") };
         save.Click += (_, _) => { AddTyped(); DialogResult = true; };
         buttons.Children.Add(cancel);
         buttons.Children.Add(save);
@@ -89,10 +89,10 @@ public sealed class TagEditor : Window
     {
         _chips.Children.Clear();
         if (_tags.Count == 0)
-            _chips.Children.Add(new TextBlock { Text = "Nenhuma tag ainda.", Style = (Style)FindResource("Muted") });
+            _chips.Children.Add(new TextBlock { Text = Loc.T("dlg_tags_none"), Style = (Style)FindResource("Muted") });
         foreach (string tag in _tags.ToList())
         {
-            var remove = new Button { Content = "×", Style = (Style)FindResource("Quiet"), Padding = new Thickness(6, 0, 2, 0), FontSize = 14, ToolTip = "Tirar" };
+            var remove = new Button { Content = "×", Style = (Style)FindResource("Quiet"), Padding = new Thickness(6, 0, 2, 0), FontSize = 14, ToolTip = Loc.T("dlg_tags_remove") };
             remove.Click += (_, _) => { _tags.Remove(tag); RenderChips(); _input.Focus(); };
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             row.Children.Add(new TextBlock { Text = tag, VerticalAlignment = VerticalAlignment.Center });

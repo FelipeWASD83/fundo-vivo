@@ -8,6 +8,16 @@
     "Música",
     "3D"
   ],
+  "i18n": {
+    "en": {
+      "title": "Sound cube",
+      "tags": [
+        "Abstract",
+        "Music",
+        "3D"
+      ]
+    }
+  },
   "loop": 60,
   "background": "#03080a",
   "parallax": 0.04,

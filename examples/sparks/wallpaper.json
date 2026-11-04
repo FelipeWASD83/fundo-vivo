@@ -8,6 +8,16 @@
     "Eletricidade",
     "Interativo"
   ],
+  "i18n": {
+    "en": {
+      "title": "Sparks",
+      "tags": [
+        "Abstract",
+        "Electricity",
+        "Interactive"
+      ]
+    }
+  },
   "loop": 20,
   "background": "#060302",
   "parallax": 0.03,

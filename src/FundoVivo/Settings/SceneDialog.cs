@@ -23,7 +23,7 @@ public sealed class SceneDialog : Window
     public SceneDialog(Window owner, LibraryItem scene, MonitorInfo monitor, double duration, double crossfade, int fps, ItemSettings settings)
     {
         Owner = owner;
-        Title = "Converter cena";
+        Title = Loc.T("dlg_scene_title");
         Width = 520;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -37,32 +37,32 @@ public sealed class SceneDialog : Window
 
         var root = new StackPanel { Margin = new Thickness(22, 18, 22, 18) };
         root.Children.Add(new TextBlock { Text = scene.Title, Style = (Style)FindResource("H2"), TextWrapping = TextWrapping.Wrap });
-        root.Children.Add(Muted($"Vira um vídeo em loop para {monitor.Label} ({monitor.Bounds.Width}×{monitor.Bounds.Height}), a {fps} fps (o limite de fps do seu Wallpaper Engine; para 60, suba o limite lá antes)."));
+        root.Children.Add(Muted(Loc.T("dlg_scene_intro", monitor.Label, monitor.Bounds.Width, monitor.Bounds.Height, fps)));
 
         var traits = scene.Traits;
         var notes = new List<string>();
         if (traits.HasFlag(SceneTraits.Unreadable))
-            notes.Add("Não deu para ler o que esta cena usa. Ela converte, mas sem a classificação.");
+            notes.Add(Loc.T("dlg_scene_note_unreadable"));
         else if ((traits & (SceneTraits.Parallax | SceneTraits.Sound | SceneTraits.Mouse | SceneTraits.Clock)) == 0)
-            notes.Add("Converte sem perder nada: a cena não usa mouse, relógio, reação ao som nem parallax.");
+            notes.Add(Loc.T("dlg_scene_note_lossless"));
         if (traits.HasFlag(SceneTraits.Parallax))
-            notes.Add("Parallax vira pan: o vídeo sai um pouco maior que a tela e anda com o mouse. É uma aproximação: o vídeo inteiro anda junto, sem a profundidade de cada camada.");
+            notes.Add(Loc.T("dlg_scene_note_parallax"));
         if (traits.HasFlag(SceneTraits.Sound))
-            notes.Add("Perde a reação ao som. E o que estiver tocando no PC durante a gravação fica gravado na animação: converta com o som parado.");
+            notes.Add(Loc.T("dlg_scene_note_sound"));
         if (traits.HasFlag(SceneTraits.Mouse))
-            notes.Add("Perde o mouse: o que segue o cursor fica parado.");
+            notes.Add(Loc.T("dlg_scene_note_mouse"));
         if (traits.HasFlag(SceneTraits.Clock))
-            notes.Add("O relógio fica parado na hora da gravação. Se a cena tiver uma opção para esconder o relógio, ela está aqui embaixo.");
+            notes.Add(Loc.T("dlg_scene_note_clock"));
         if (traits.HasFlag(SceneTraits.BackgroundSound))
-            notes.Add("O som de fundo vai junto: ele sai do pacote e toca em loop com o vídeo, no volume do painel (começa mudo).");
+            notes.Add(Loc.T("dlg_scene_note_bgsound"));
         if (scene.SuggestedLoop > 0)
-            notes.Add($"As animações da cena se repetem a cada pouco; um loop de {scene.SuggestedLoop:0.##} s fecha certinho com elas (por isso a duração já vem nele).");
-        root.Children.Add(new TextBlock { Text = "O QUE MUDA", Style = (Style)FindResource("Label") });
+            notes.Add(Loc.T("dlg_scene_note_loop", scene.SuggestedLoop.ToString("0.##", CultureInfo.CurrentCulture)));
+        root.Children.Add(new TextBlock { Text = Loc.T("dlg_scene_what_changes"), Style = (Style)FindResource("Label") });
         foreach (string n in notes) root.Children.Add(Muted("• " + n, new Thickness(0, 0, 0, 4)));
 
-        root.Children.Add(new TextBlock { Text = "DURAÇÃO DO LOOP", Style = (Style)FindResource("Label") });
+        root.Children.Add(new TextBlock { Text = Loc.T("dlg_scene_loop_length"), Style = (Style)FindResource("Label") });
         root.Children.Add(Row(_duration, v => $"{v:0} s"));
-        root.Children.Add(new TextBlock { Text = "EMENDA (MISTURA DO FIM COM O COMEÇO)", Style = (Style)FindResource("Label") });
+        root.Children.Add(new TextBlock { Text = Loc.T("dlg_scene_seam"), Style = (Style)FindResource("Label") });
         root.Children.Add(Row(_crossfade, v => v.ToString("0.0", CultureInfo.CurrentCulture) + " s"));
 
         // The author's options, the same editor as the web wallpapers; the choices go into the copy that is recorded.
@@ -74,19 +74,18 @@ public sealed class SceneDialog : Window
             foreach (var (k, v) in project.UserProperties(current)) Properties[k] = v?["value"]?.DeepClone();
             if (PropertyEditor.Build(panel, project, current, (key, value) => Properties[key] = value?.DeepClone()) > 0)
             {
-                root.Children.Add(new TextBlock { Text = "OPÇÕES DA CENA", Style = (Style)FindResource("Label") });
+                root.Children.Add(new TextBlock { Text = Loc.T("dlg_scene_options"), Style = (Style)FindResource("Label") });
                 root.Children.Add(new ScrollViewer { Content = panel, MaxHeight = 320, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
             }
         }
 
         root.Children.Add(Muted(
-            "Durante a gravação, a janela do Wallpaper Engine aparece por um instante no canto da tela e sai para fora dela; " +
-            "dá para continuar usando o PC. Não abra jogo em tela cheia até terminar: o Wallpaper Engine pausa e a gravação sai parada.",
+            Loc.T("dlg_scene_recording"),
             new Thickness(0, 16, 0, 0)));
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
-        var cancel = new Button { Content = "Cancelar", Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
-        var go = new Button { Content = "Converter", Style = (Style)FindResource("Primary"), IsDefault = true };
+        var cancel = new Button { Content = Loc.T("dlg_cancel"), Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
+        var go = new Button { Content = Loc.T("dlg_scene_convert"), Style = (Style)FindResource("Primary"), IsDefault = true };
         go.Click += (_, _) => DialogResult = true;
         buttons.Children.Add(cancel);
         buttons.Children.Add(go);

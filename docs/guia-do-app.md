@@ -35,7 +35,7 @@ Clique num monitor para escolher onde o próximo wallpaper vai.
 ### Biblioteca
 
 - Filtros **Todos**, **Vídeo**, **Web**, **Imagem** e **Cena**, e a busca pelo nome (ignora acento e maiúscula).
-- **Tags**, embaixo dos filtros de tipo: as do Wallpaper Engine, em português (Anime, Jogo, Natureza, Paisagem...), e
+- **Tags**, embaixo dos filtros de tipo: as do Wallpaper Engine, em português (Anime, Jogo, Natureza, Paisagem...) ou como vêm no arquivo se o programa estiver em inglês, e
   as suas, cada uma com quantos wallpapers tem. Marcando várias, aparece só o que tem **todas**. Depois vem a
   **Classificação** (Livre, Questionável, Adulto), lida do próprio wallpaper; ali vale **qualquer uma** das marcadas.
   Tudo se combina com o tipo e com a busca, e **Limpar** desmarca.

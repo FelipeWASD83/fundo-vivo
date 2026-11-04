@@ -16,7 +16,7 @@
 
   const canvas = document.getElementById('c');
   const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
-  if (!gl) { post({ type: 'error', message: 'WebGL2 indisponível' }); return; }
+  if (!gl) { post({ type: 'error', message: 'WebGL2 unavailable' }); return; }
 
   // ------------------------------------------------------------------ small helpers
   const TAU = Math.PI * 2;
@@ -663,7 +663,7 @@
     p = num(p, LOOP);
     const n = Math.max(1, Math.round(LOOP / p));
     const snapped = LOOP / n;
-    if (Math.abs(snapped - p) > 1e-3) warn(`${where}: período ${p} não divide o loop de ${LOOP} s; usando ${snapped.toFixed(3)}`);
+    if (Math.abs(snapped - p) > 1e-3) warn(`${where}: period ${p} does not divide the ${LOOP} s loop; using ${snapped.toFixed(3)}`);
     return snapped;
   }
   /** Whole cycles per loop for a speed given as cycles per period in seconds (so the loop closes). */
@@ -681,10 +681,10 @@
 
   async function load() {
     const res = await fetch('wallpaper.json', { cache: 'no-store' });
-    if (!res.ok) throw new Error('wallpaper.json não encontrado');
+    if (!res.ok) throw new Error('wallpaper.json not found');
     W = await res.json();
-    if (W.format !== 'fundo-vivo') throw new Error('não é um wallpaper do Fundo Vivo');
-    if (W.version !== 1) warn(`versão ${W.version} do formato; este runtime conhece a 1`);
+    if (W.format !== 'fundo-vivo') throw new Error('not a Fundo Vivo wallpaper');
+    if (W.version !== 1) warn(`format version ${W.version}; this runtime knows version 1`);
     // up to an hour; past two minutes the host never turns it into a video, so it always plays live
     LOOP = clamp(num(W.loop, 20), 1, 3600);
     if (LOOP > 120) realtime = true;
@@ -693,19 +693,19 @@
     W.layers.forEach((l, i) => {
       l.animate = Array.isArray(l.animate) ? l.animate : [];
       l.animate.forEach((a, j) => {
-        const where = `camada ${l.name || i + 1}, animação ${j + 1}`;
+        const where = `layer ${l.name || i + 1}, animation ${j + 1}`;
         if (a.type !== 'audio') a._period = snapPeriod(a.period, where);
         if (a.type === 'spin') {
           // whole turns per loop, or the last frame would not match the first
           const perLoop = num(a.amount, 1) * LOOP / a._period, whole = Math.round(perLoop) || Math.sign(perLoop) || 1;
-          if (Math.abs(whole - perLoop) > 1e-3) warn(`${where}: ${perLoop.toFixed(2)} voltas por loop; usando ${whole}`);
+          if (Math.abs(whole - perLoop) > 1e-3) warn(`${where}: ${perLoop.toFixed(2)} turns per loop; using ${whole}`);
           a._turns = whole;
         }
         a._phases = [1, 2, 3].map((k) => hash(i, j, k));
       });
       if (wantsSound(l)) realtime = true;
-      if (l.type === 'text' && num(l.reveal, 0) > 0) l._reveal = snapPeriod(l.reveal, `camada ${l.name || i + 1}, digitação`);
-      if (l.colorBy === 'draw') l._colorPeriod = snapPeriod(num(l.colorPeriod, 8.5), `camada ${l.name || i + 1}, cores`);
+      if (l.type === 'text' && num(l.reveal, 0) > 0) l._reveal = snapPeriod(l.reveal, `layer ${l.name || i + 1}, typing`);
+      if (l.colorBy === 'draw') l._colorPeriod = snapPeriod(num(l.colorPeriod, 8.5), `layer ${l.name || i + 1}, colors`);
     });
     if (W.effects.some((e) => e.band != null || e.type === 'shake')) realtime = true;
     const sources = new Set();
@@ -719,7 +719,7 @@
       if (images.has(src)) return;
       const img = new Image();
       img.src = src;
-      try { await img.decode(); } catch (e) { warn(`imagem ${src} não abriu`); return; }
+      try { await img.decode(); } catch (e) { warn(`image ${src} did not open`); return; }
       const t = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, t);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
@@ -734,7 +734,7 @@
     // fonts shipped inside the package: a text layer names the family in `font` and the file in `fontFile`
     await Promise.all(W.layers.filter((l) => l.type === 'text' && typeof l.fontFile === 'string' && typeof l.font === 'string').map(async (l) => {
       try { const ff = new FontFace(l.font, `url("${encodeURI(l.fontFile)}")`); await ff.load(); document.fonts.add(ff); }
-      catch (e) { warn(`fonte ${l.fontFile} não abriu`); }
+      catch (e) { warn(`font ${l.fontFile} did not open`); }
     }));
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
   }
@@ -1724,7 +1724,7 @@
       const m = e.data;
       if (!m || m.type !== 'frame') return;
       try {
-        if (!view) throw new Error('sem o buffer do quadro');
+        if (!view) throw new Error('no frame buffer');
         // the final target, rows bottom-up (the host flips them)
         bindTarget(draw(m.t));
         gl.readPixels(0, 0, RENDER_W, RENDER_H, gl.RGBA, gl.UNSIGNED_BYTE, view);

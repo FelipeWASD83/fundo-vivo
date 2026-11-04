@@ -4,6 +4,7 @@
   "title": "Neve nas montanhas",
   "author": "Fundo Vivo",
   "tags": ["Neve", "Montanha", "Inverno"],
+  "i18n": { "en": { "title": "Snow on the mountains", "tags": ["Snow", "Mountain", "Winter"] } },
   "loop": 20,
   "background": "#1c2a48",
   "parallax": 0.03,

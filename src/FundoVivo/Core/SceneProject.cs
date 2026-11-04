@@ -46,21 +46,27 @@ public sealed class SceneProject
 
     public string Id => Library.IdFor(Path.Combine(Folder, "project.json"));
 
-    public static readonly string[] TraitTags = { "Converte sem perder nada", "Parallax vira pan", "Perde reação ao som", "Perde o mouse", "Sem leitura", "Vira vídeo direto", "Relógio fica parado", "Som vai junto" };
+    /// <summary>The classification tags in the current language. The index order is fixed: ClassificationTags indexes it.</summary>
+    public static string[] TraitTags => new[]
+    {
+        Loc.T("core_trait_lossless"), Loc.T("core_trait_parallax"), Loc.T("core_trait_sound"), Loc.T("core_trait_mouse"),
+        Loc.T("core_trait_unreadable"), Loc.T("core_trait_direct"), Loc.T("core_trait_clock"), Loc.T("core_trait_bgsound"),
+    };
 
     const SceneTraits Losses = SceneTraits.Parallax | SceneTraits.Sound | SceneTraits.Mouse | SceneTraits.Clock;
 
     /// <summary>The automatic tags for the library filter.</summary>
     public IEnumerable<string> ClassificationTags()
     {
-        if (Traits.HasFlag(SceneTraits.Unreadable)) { yield return TraitTags[4]; yield break; }
-        if ((Traits & Losses) == 0) yield return TraitTags[0];
-        if (Traits.HasFlag(SceneTraits.Parallax)) yield return TraitTags[1];
-        if (Traits.HasFlag(SceneTraits.Sound)) yield return TraitTags[2];
-        if (Traits.HasFlag(SceneTraits.Mouse)) yield return TraitTags[3];
-        if (Traits.HasFlag(SceneTraits.Clock)) yield return TraitTags[6];
-        if (Traits.HasFlag(SceneTraits.BackgroundSound)) yield return TraitTags[7];
-        if (Traits.HasFlag(SceneTraits.Direct)) yield return TraitTags[5];
+        var names = TraitTags;
+        if (Traits.HasFlag(SceneTraits.Unreadable)) { yield return names[4]; yield break; }
+        if ((Traits & Losses) == 0) yield return names[0];
+        if (Traits.HasFlag(SceneTraits.Parallax)) yield return names[1];
+        if (Traits.HasFlag(SceneTraits.Sound)) yield return names[2];
+        if (Traits.HasFlag(SceneTraits.Mouse)) yield return names[3];
+        if (Traits.HasFlag(SceneTraits.Clock)) yield return names[6];
+        if (Traits.HasFlag(SceneTraits.BackgroundSound)) yield return names[7];
+        if (Traits.HasFlag(SceneTraits.Direct)) yield return names[5];
     }
 
     /// <summary>One entry of the package, whole.</summary>
@@ -98,13 +104,13 @@ public sealed class SceneProject
         string ReadString()
         {
             int n = r.ReadInt32();
-            if (n < 0 || n > 4096) throw new InvalidDataException("pacote inválido");
+            if (n < 0 || n > 4096) throw new InvalidDataException("invalid package");
             return Encoding.UTF8.GetString(r.ReadBytes(n));
         }
         string magic = ReadString();
-        if (!magic.StartsWith("PKGV", StringComparison.Ordinal)) throw new InvalidDataException("não é um scene.pkg");
+        if (!magic.StartsWith("PKGV", StringComparison.Ordinal)) throw new InvalidDataException("not a scene.pkg");
         int count = r.ReadInt32();
-        if (count < 0 || count > 200_000) throw new InvalidDataException("pacote inválido");
+        if (count < 0 || count > 200_000) throw new InvalidDataException("invalid package");
         var entries = new List<(string, int, int)>(count);
         for (int i = 0; i < count; i++) entries.Add((ReadString(), r.ReadInt32(), r.ReadInt32()));
         long baseOffset = f.Position;
@@ -143,7 +149,7 @@ public sealed class SceneProject
             foreach (var (name, entry) in table)
             {
                 string dest = Path.GetFullPath(Path.Combine(target, name));
-                if (!dest.StartsWith(full, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("pacote com caminho inválido: " + name);
+                if (!dest.StartsWith(full, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("package with an invalid path: " + name);
                 Directory.CreateDirectory(Path.GetDirectoryName(dest));
                 File.WriteAllBytes(dest, ReadEntry(f, entry));
             }
@@ -163,7 +169,7 @@ public sealed class SceneProject
         if (disableParallax)
         {
             string sceneJson = Path.Combine(target, SceneFile);
-            var scene = JsonNode.Parse(File.ReadAllText(sceneJson), documentOptions: Lenient)?.AsObject() ?? throw new InvalidDataException("scene.json vazio");
+            var scene = JsonNode.Parse(File.ReadAllText(sceneJson), documentOptions: Lenient)?.AsObject() ?? throw new InvalidDataException("empty scene.json");
             if (scene["general"] is not JsonObject general) scene["general"] = general = new JsonObject();
             general["cameraparallax"] = false;
             File.WriteAllText(sceneJson, scene.ToJsonString());

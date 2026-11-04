@@ -4,6 +4,7 @@
   "title": "Noite de chuva",
   "author": "Fundo Vivo",
   "tags": ["Chuva", "Noite", "Cidade"],
+  "i18n": { "en": { "title": "Rainy night", "tags": ["Rain", "Night", "City"] } },
   "loop": 20,
   "background": "#0b1226",
   "parallax": 0.03,

@@ -9,7 +9,7 @@ namespace FundoVivo.Core;
 ///   FundoVivo.exe --pause | --resume | --toggle-pause
 ///   FundoVivo.exe --next [monitor]                  next playlist entry (every monitor with a playlist, or one)
 ///   FundoVivo.exe --set &lt;monitor&gt; &lt;file or title&gt;   puts it on that monitor, as a click in the library would
-/// A monitor is "principal", its number counted from the left (1, 2...) or part of its name. The app has no console:
+/// A monitor is "principal" (or "primary"), its number counted from the left (1, 2...) or part of its name. The app has no console:
 /// the outcome is the exit code (0 done, 2 a video is being made first, 1 failed) and a line in logs\cli.log.
 /// </summary>
 public static class Cli
@@ -30,23 +30,23 @@ public static class Cli
                     if (args.Length > 1)
                     {
                         var m = FindMonitor(args[1]);
-                        if (m == null) return Fail($"monitor não encontrado: {args[1]}");
+                        if (m == null) return Fail(Loc.T("tool_cli_monitor_not_found", args[1]));
                         cmd["monitor"] = m.Id;
                     }
                     return Send(cmd);
                 }
                 case "--set":
-                    return args.Length < 3 ? Fail("uso: --set <monitor> <arquivo ou título>") : Set(args[1], string.Join(' ', args.Skip(2)));
+                    return args.Length < 3 ? Fail(Loc.T("tool_cli_usage")) : Set(args[1], string.Join(' ', args.Skip(2)));
             }
         }
         catch (Exception e) { return Fail(e.ToString()); }
-        return Fail("comando desconhecido: " + args[0]);
+        return Fail(Loc.T("tool_cli_unknown_command", args[0]));
     }
 
     static int Send(JsonObject cmd)
     {
         if (EngineHost.Send(cmd.ToJsonString())) { Log.Write("sent " + cmd.ToJsonString()); return 0; }
-        return Fail("o Fundo Vivo não está rodando");
+        return Fail(Loc.T("tool_cli_not_running", Loc.AppName));
     }
 
     static int Fail(string why)
@@ -68,7 +68,7 @@ public static class Cli
     static int Set(string monitorArg, string what)
     {
         var monitor = FindMonitor(monitorArg);
-        if (monitor == null) return Fail($"monitor não encontrado: {monitorArg}");
+        if (monitor == null) return Fail(Loc.T("tool_cli_monitor_not_found", monitorArg));
         var config = ConfigStore.Load();
         var scan = Library.Scan(config);
         LibraryItem item = null;
@@ -79,7 +79,7 @@ public static class Cli
             if (item == null)
             {
                 // a file that is not in the library yet comes in as one of the user's own, like Adicionar arquivo
-                var type = Library.TypeForFile(what) ?? throw new InvalidOperationException("tipo de arquivo que o Fundo Vivo não toca: " + what);
+                var type = Library.TypeForFile(what) ?? throw new InvalidOperationException(Loc.T("tool_cli_file_type", Loc.AppName, what));
                 var info = type == WallpaperType.Package ? Packages.Inspect(what) : null;
                 ConfigStore.Mutate(c =>
                 {
@@ -93,7 +93,7 @@ public static class Cli
         else
             item = scan.Items.FirstOrDefault(i => i.Title.Equals(what, StringComparison.CurrentCultureIgnoreCase))
                 ?? scan.Items.FirstOrDefault(i => i.Title.Contains(what, StringComparison.CurrentCultureIgnoreCase));
-        if (item == null) return Fail("nada na biblioteca com esse nome ou arquivo: " + what);
+        if (item == null) return Fail(Loc.T("tool_cli_nothing_found", what));
 
         if (Placement.Ready(config, item, monitor) is { } ready)
         {

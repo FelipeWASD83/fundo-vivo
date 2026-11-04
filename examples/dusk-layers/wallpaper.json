@@ -8,6 +8,16 @@
     "Ondas",
     "Pôr do sol"
   ],
+  "i18n": {
+    "en": {
+      "title": "Dusk layers",
+      "tags": [
+        "Abstract",
+        "Waves",
+        "Sunset"
+      ]
+    }
+  },
   "loop": 60,
   "background": "#1b0f33",
   "parallax": 0.05,

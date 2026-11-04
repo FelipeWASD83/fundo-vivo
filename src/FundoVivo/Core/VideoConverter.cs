@@ -35,7 +35,7 @@ public static class VideoConverter
     /// <summary>Runs ffmpeg; progress goes 0..1. Tries the RTX encoder first and falls back to x264.</summary>
     public static async Task<string> ConvertAsync(string source, int w, int h, FitMode fit, double durationSeconds, IProgress<double> progress, CancellationToken cancel)
     {
-        string ffmpeg = FindFfmpeg() ?? throw new InvalidOperationException("O ffmpeg não foi encontrado no PATH.");
+        string ffmpeg = FindFfmpeg() ?? throw new InvalidOperationException(Loc.T("tool_ffmpeg_missing"));
         string output = OutputPath(source, w, h, fit);
         string temp = output + ".part.mp4";
         string filter = fit switch
@@ -71,7 +71,7 @@ public static class VideoConverter
                 try { if (File.Exists(temp)) File.Delete(temp); } catch { }
             }
         }
-        throw new InvalidOperationException("O ffmpeg não conseguiu converter: " + lastError.Trim());
+        throw new InvalidOperationException(Loc.T("tool_ffmpeg_failed_convert", lastError.Trim()));
     }
 
     static async Task<(bool ok, string error)> RunAsync(string exe, string args, double duration, IProgress<double> progress, CancellationToken cancel)

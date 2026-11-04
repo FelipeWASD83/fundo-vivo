@@ -44,7 +44,7 @@ public static class Placement
     public static SceneJob JobFor(AppConfig c, LibraryItem item, MonitorInfo m, out string problem)
     {
         problem = null;
-        if (VideoConverter.FindFfmpeg() == null) { problem = "o ffmpeg precisa estar no PATH"; return null; }
+        if (VideoConverter.FindFfmpeg() == null) { problem = Loc.T("core_problem_ffmpeg"); return null; }
         var job = new SceneJob
         {
             SceneTitle = item.Title, MonitorId = m.Id, MonitorName = m.Label, Width = m.Bounds.Width, Height = m.Bounds.Height, Crossfade = 0,
@@ -54,7 +54,7 @@ public static class Placement
             job.SceneFolder = item.Folder;
             if (!item.Traits.HasFlag(SceneTraits.Direct))
             {
-                if (SceneConverter.FindWallpaperEngine() == null) { problem = "o Wallpaper Engine não foi encontrado (é ele que desenha a cena para a gravação)"; return null; }
+                if (SceneConverter.FindWallpaperEngine() == null) { problem = Loc.T("core_problem_we_missing"); return null; }
                 job.Duration = item.SuggestedLoop > 0 ? item.SuggestedLoop : c.SceneDuration;
                 job.Crossfade = c.SceneCrossfade;
                 // the options last chosen for this scene in the window
@@ -71,12 +71,12 @@ public static class Placement
         if (item.Type == WallpaperType.Package && !item.Realtime)
         {
             var info = Packages.Inspect(item.File);
-            if (info == null) { problem = "não deu para ler esse arquivo .vivo (veja o registro)"; return null; }
+            if (info == null) { problem = Loc.T("core_problem_vivo_unreadable"); return null; }
             job.Kind = "package"; job.ItemId = item.Id; job.PackageFile = item.File; job.Duration = info.Loop;
             job.Fps = Math.Min(60, c.EffectiveFps(m.RefreshRate));
             return job;
         }
-        problem = "esse wallpaper não precisa de conversão";
+        problem = Loc.T("core_problem_no_conversion");
         return null;
     }
 }

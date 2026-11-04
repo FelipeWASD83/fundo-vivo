@@ -95,13 +95,13 @@ public static class SceneConverter
 
     public static async Task<SceneResult> ConvertAsync(SceneJob job, IProgress<(double, string)> progress, CancellationToken cancel)
     {
-        var scene = SceneProject.Load(job.SceneFolder) ?? throw new InvalidOperationException("Essa pasta não é uma cena do Wallpaper Engine.");
+        var scene = SceneProject.Load(job.SceneFolder) ?? throw new InvalidOperationException(Loc.T("tool_scene_not_scene"));
         // A single animated picture is cut straight from its sprite sheet: no Wallpaper Engine, no recording.
         if (scene.Traits.HasFlag(SceneTraits.Direct) && scene.SpriteTexture() is { } sheet
             && await SpriteScene.ConvertAsync(job, scene, sheet, progress, cancel) is { } direct)
             return direct;
-        string we = FindWallpaperEngine() ?? throw new InvalidOperationException("O Wallpaper Engine não foi encontrado neste PC.");
-        string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException("O ffmpeg não foi encontrado no PATH.");
+        string we = FindWallpaperEngine() ?? throw new InvalidOperationException(Loc.T("tool_we_missing"));
+        string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException(Loc.T("tool_ffmpeg_missing"));
         int fps = WallpaperEngineFps(we);
         double margin = MarginFor(scene);
         int finalW = Even(job.Width * (1 + 2 * margin)), finalH = Even(job.Height * (1 + 2 * margin));
@@ -115,19 +115,19 @@ public static class SceneConverter
         IntPtr window = IntPtr.Zero;
         try
         {
-            progress.Report((0.02, "Preparando a cena"));
+            progress.Report((0.02, Loc.T("tool_scene_preparing")));
             scene.UnpackTo(work, disableParallax: true);
             ApplyProperties(work, job.Properties);
             await EnsureRunningAsync(we, cancel);
 
-            progress.Report((0.05, "Abrindo no Wallpaper Engine"));
+            progress.Report((0.05, Loc.T("tool_scene_opening")));
             for (int attempt = 0; ; attempt++)
             {
                 Run(we, $"-control openWallpaper -file \"{Path.Combine(work, "project.json")}\" -playInWindow \"{title}\" -width {recW} -height {recH}");
                 var sw = Stopwatch.StartNew();
                 while ((window = Win32.FindWindowW(WindowClass, title)) == IntPtr.Zero)
                 {
-                    if (sw.Elapsed.TotalSeconds > 30) throw new InvalidOperationException("O Wallpaper Engine não abriu a janela da cena.");
+                    if (sw.Elapsed.TotalSeconds > 30) throw new InvalidOperationException(Loc.T("tool_we_no_window"));
                     await Task.Delay(30, cancel);
                 }
                 MoveOffscreen(window);
@@ -138,26 +138,26 @@ public static class SceneConverter
                 Close(we, title, window);
                 window = IntPtr.Zero;
                 if (attempt >= 2 || client.Width <= 0 || client.Height <= 0)
-                    throw new InvalidOperationException($"O Wallpaper Engine abriu a janela com {client.Width}x{client.Height} em vez de {recW}x{recH}.");
+                    throw new InvalidOperationException(Loc.T("tool_we_window_size", client.Width, client.Height, recW, recH));
                 double s = Math.Min((double)client.Width / recW, (double)client.Height / recH);
                 recW = Even(recW * s) - 2;
                 recH = Even(recH * s) - 2;
             }
 
-            progress.Report((0.08, "Esperando a cena carregar"));
+            progress.Report((0.08, Loc.T("tool_scene_loading")));
             await Task.Delay(TimeSpan.FromSeconds(Warmup), cancel);
 
-            progress.Report((0.1, "Gravando"));
+            progress.Report((0.1, Loc.T("tool_scene_recording")));
             string tags = "setparams=range=tv:colorspace=bt470bg:color_primaries=bt709:color_trc=iec61966-2-1";
             string recordEncoder = Encoder(recW, recH, nvenc: true, cq: 16);
             string args = $"-y -hide_banner -nostats -loglevel error -progress pipe:1 -f lavfi -i gfxcapture=hwnd={(long)window}:capture_cursor=0:max_framerate={fps},{tags} " +
                           $"-t {F(total)} {recordEncoder} -fps_mode cfr -r {fps} \"{raw}\"";
-            var (ok, err) = await RunFfmpegAsync(ffmpeg, args, total, p => progress.Report((0.1 + 0.6 * p, "Gravando")), cancel);
-            if (!ok || !File.Exists(raw)) throw new InvalidOperationException("A gravação falhou: " + err.Trim());
+            var (ok, err) = await RunFfmpegAsync(ffmpeg, args, total, p => progress.Report((0.1 + 0.6 * p, Loc.T("tool_scene_recording"))), cancel);
+            if (!ok || !File.Exists(raw)) throw new InvalidOperationException(Loc.T("tool_scene_record_failed", err.Trim()));
             Close(we, title, window);
             window = IntPtr.Zero;
 
-            progress.Report((0.72, "Emendando o loop"));
+            progress.Report((0.72, Loc.T("tool_scene_looping")));
             string scale = recW == finalW && recH == finalH ? "" : $",scale={finalW}:{finalH}:flags=lanczos";
             string filter = $"[0:v]split[a][b];[a]trim=start={F(job.Crossfade)}:end={F(total)},setpts=PTS-STARTPTS[body];" +
                             $"[b]trim=start=0:end={F(job.Crossfade)},setpts=PTS-STARTPTS[head];" +
@@ -169,13 +169,13 @@ public static class SceneConverter
             {
                 string finish = $"-y -hide_banner -nostats -loglevel error -progress pipe:1 -i \"{raw}\" -filter_complex \"{filter}\" -map [v] " +
                                 $"{Encoder(finalW, finalH, nvenc, cq: 19)} -r {fps} -movflags +faststart -an \"{temp}\"";
-                var (fine, ferr) = await RunFfmpegAsync(ffmpeg, finish, job.Duration, p => progress.Report((0.72 + 0.27 * p, "Emendando o loop")), cancel);
+                var (fine, ferr) = await RunFfmpegAsync(ffmpeg, finish, job.Duration, p => progress.Report((0.72 + 0.27 * p, Loc.T("tool_scene_looping"))), cancel);
                 if (fine && File.Exists(temp)) { File.Move(temp, output, true); done = true; break; }
                 lastError = ferr;
             }
-            if (!done) throw new InvalidOperationException("Não deu para fechar o loop: " + lastError.Trim());
+            if (!done) throw new InvalidOperationException(Loc.T("tool_scene_loop_failed", lastError.Trim()));
             string audio = await ExtractSoundAsync(ffmpeg, scene, output, cancel);
-            progress.Report((1, "Pronto"));
+            progress.Report((1, Loc.T("tool_done")));
             return new SceneResult { Output = output, Width = finalW, Height = finalH, Margin = margin, Fps = fps, Audio = audio };
         }
         finally

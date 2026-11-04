@@ -8,6 +8,16 @@
     "Mar",
     "Noite"
   ],
+  "i18n": {
+    "en": {
+      "title": "Night tide",
+      "tags": [
+        "Nature",
+        "Sea",
+        "Night"
+      ]
+    }
+  },
   "loop": 30,
   "background": "#02060c",
   "parallax": 0.03,

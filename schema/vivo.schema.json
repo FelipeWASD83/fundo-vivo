@@ -27,6 +27,18 @@
         "type": "string"
       }
     },
+    "i18n": {
+      "type": "object",
+      "description": "Optional texts per interface language (\"en\", \"pt\"); the library uses the current language's title and tags when present, else the top-level ones.",
+      "properties": {
+        "en": {
+          "$ref": "#/$defs/localizedTexts"
+        },
+        "pt": {
+          "$ref": "#/$defs/localizedTexts"
+        }
+      }
+    },
     "loop": {
       "type": "number",
       "minimum": 1,
@@ -60,6 +72,20 @@
     }
   },
   "$defs": {
+    "localizedTexts": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "color": {
       "type": "string",
       "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"

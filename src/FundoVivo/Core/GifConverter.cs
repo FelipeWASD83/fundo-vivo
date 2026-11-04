@@ -36,11 +36,11 @@ public static class GifConverter
 
     public static async Task<SceneResult> ConvertAsync(SceneJob job, IProgress<(double, string)> progress, CancellationToken cancel)
     {
-        string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException("O ffmpeg não foi encontrado no PATH.");
+        string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException(Loc.T("tool_ffmpeg_missing"));
         string file = job.PackageFile;
-        progress.Report((0.05, "Lendo o GIF"));
+        progress.Report((0.05, Loc.T("tool_gif_reading")));
         var (gw, gh, seconds) = Probe(ffmpeg, file);
-        if (gw <= 0 || gh <= 0) throw new InvalidOperationException("Não deu para ler o GIF.");
+        if (gw <= 0 || gh <= 0) throw new InvalidOperationException(Loc.T("tool_gif_unreadable"));
         int repeats = seconds > 0 ? Math.Max(1, (int)Math.Ceiling(MinimumLength / seconds)) : 1;
 
         string scale;
@@ -63,7 +63,7 @@ public static class GifConverter
         string lastError = "";
         foreach (bool nvenc in new[] { true, false })
         {
-            progress.Report((0.15, "Convertendo o GIF"));
+            progress.Report((0.15, Loc.T("tool_gif_converting")));
             string args = $"-y -hide_banner -nostats -loglevel error -stream_loop {repeats - 1} -i \"{file}\" " +
                           $"-vf {scale},scale=out_color_matrix=bt709:out_range=tv,format=yuv420p -fps_mode vfr " +
                           $"{SceneConverter.Encoder(w, h, nvenc, cq: 19)} -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv " +
@@ -77,13 +77,13 @@ public static class GifConverter
             {
                 File.Move(temp, output, true);
                 Log.Write($"gif converted: {file} {gw}x{gh} x{repeats} ({seconds:0.##} s each) -> {w}x{h}, {(nvenc ? "nvenc" : "software")}");
-                progress.Report((1, "Pronto"));
+                progress.Report((1, Loc.T("tool_done")));
                 return new SceneResult { Output = output, Width = w, Height = h, Margin = 0, Fps = 0 };
             }
             lastError = err;
             try { File.Delete(temp); } catch { }
         }
-        throw new InvalidOperationException("O ffmpeg não converteu o GIF: " + lastError.Trim());
+        throw new InvalidOperationException(Loc.T("tool_gif_ffmpeg_failed", lastError.Trim()));
     }
 
     /// <summary>Size and length (one pass of the animation) through ffprobe, next to ffmpeg.</summary>

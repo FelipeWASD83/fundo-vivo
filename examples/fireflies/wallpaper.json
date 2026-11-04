@@ -4,6 +4,7 @@
   "title": "Vaga-lumes no crepúsculo",
   "author": "Fundo Vivo",
   "tags": ["Natureza", "Floresta", "Noite"],
+  "i18n": { "en": { "title": "Fireflies at dusk", "tags": ["Nature", "Forest", "Night"] } },
   "loop": 20,
   "background": "#1a1838",
   "parallax": 0.04,

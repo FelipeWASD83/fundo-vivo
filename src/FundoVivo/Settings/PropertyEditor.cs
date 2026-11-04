@@ -145,7 +145,7 @@ public static class PropertyEditor
     {
         var color = ParseColor(current?.ToString());
         var swatch = new Border { Width = 28, Height = 28, CornerRadius = new CornerRadius(7), Background = new SolidColorBrush(color), BorderBrush = (Brush)Application.Current.Resources["Line"], BorderThickness = new Thickness(1) };
-        var button = new Button { Content = "Escolher cor", Margin = new Thickness(10, 0, 0, 0) };
+        var button = new Button { Content = Loc.T("dlg_prop_pick_color"), Margin = new Thickness(10, 0, 0, 0) };
         button.Click += (_, _) =>
         {
             var owner = Window.GetWindow(button);

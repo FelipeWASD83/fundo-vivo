@@ -127,6 +127,8 @@ public sealed class AppConfig
     public bool PausedByUser { get; set; }
     public bool ScanWallpaperEngine { get; set; } = true;
     public AppTheme Theme { get; set; } = AppTheme.System;
+    /// <summary>Interface language: "auto" (follows Windows), "pt" or "en".</summary>
+    public string Language { get; set; } = "auto";
     /// <summary>Frame-rate cap for live wallpapers (web, and the app's own format later). The monitor's rate still wins when lower.</summary>
     public int FpsLimit { get; set; } = 60;
 

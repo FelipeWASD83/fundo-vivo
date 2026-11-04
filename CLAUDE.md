@@ -1,7 +1,7 @@
 # CLAUDE.md: fundo-vivo
 
 Papel de parede animado leve para o Windows 11 (vídeo, imagem, web), no lugar do Wallpaper Engine para esses três
-tipos. Criado em 02/11/2026. Código em inglês; interface, documentação, changelog e commits em português.
+tipos. Criado em 02/11/2026. Código em inglês; interface em português e inglês (desde a 2.10.0); documentação, changelog e commits em português.
 Versão: `<Version>` do `src/FundoVivo/FundoVivo.csproj`, igual ao topo do `CHANGELOG.md`.
 
 A pesquisa que decidiu a tecnologia, com as medições: `docs/pesquisa-wallpaper-animado-leve.md`.
@@ -46,6 +46,17 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
 - **Monitores** (`Core/Monitors.cs`): o id estável é o caminho do monitor do `QueryDisplayConfig`
   (`\\?\DISPLAY#AUS342B#...`), não o `\\.\DISPLAYn`, que muda com a ordem dos cabos.
 
+- **Idioma** (`Core/Loc.cs`, 2.10.0): tabelas `(chave, pt, en)` em `Core/Strings/Strings*.cs`, lidas por `Loc.T("chave", args)`
+  no código e `{loc:T chave}` no XAML (`xmlns:loc="clr-namespace:FundoVivo.Core"`). Segue o idioma do Windows
+  (`AppConfig.Language` = `auto`|`pt`|`en`, forçado em Ajustes; `FUNDOVIVO_LANG=pt|en` ganha de tudo, para testes).
+  Em inglês o app é "Living Wallpaper" (`Loc.AppName`; `AppPaths.AppName` aponta para ele; nunca escrever o nome
+  direto em texto de tela, passar como `{0}`). Trocar o idioma refaz a janela (`RebuildForLanguage`) e o motor
+  relê no `settings`/`reload`. **Texto novo de tela entra na tabela, com chave literal (nada de chave montada)**;
+  `python ferramentas\check_strings.py` confere chaves faltando, duplicadas e `{n}` diferentes entre pt e en. Log,
+  comentário, id interno, campo do `config.json`, comando e erro de arquivo corrompido não se traduzem. Nunca decidir
+  lógica comparando texto de tela (o filtro de classificação compara o rótulo do idioma atual de propósito: a
+  biblioteca é relida ao trocar). Tags do Wallpaper Engine: em inglês saem como vêm no arquivo. `.vivo`: bloco
+  opcional `i18n.<pt|en>.{title,tags}`; os exemplos têm o `en`. O teste `--screenshot ... language en` refaz a janela.
 - **Tema** (`Settings/ThemeManager.cs`, 2.1.0): a cara do pack de programas dele para o Windows, igual à da `ilha`
   (a pílula e o menu estilo Central de Controle, **não** a janela de configurações dela, que ele acha feia) e à do
   `relogio-mond`: escuro em preto puro com os cinzas de sistema da Apple (`#1C1C1E`, `#2C2C2E`), texto branco a
@@ -287,10 +298,8 @@ coleta logo depois de tirar um wallpaper).
 
 ## 6. Pendente
 
-- **Inglês (pedido dele em 03/11/2026, para 04/11/2026; ele esperava que já viesse assim):** a interface é toda em
-  português escrita direto no XAML e no código. Passar os textos para uma tabela pt/en que segue o idioma do Windows,
-  como a ilha e o relógio, com o nome "Living Wallpaper" em inglês (é o nome do app no setup e no site do
-  `desktop-glow`). Depois: pacote novo e setup novo do `desktop-glow`.
+- **Inglês: feito na 2.10.0 (04/11/2026).** Pacote novo gerado; falta o setup do `desktop-glow` ser refeito com ele
+  (a sessão do desktop-glow faz). Ver o item "Idioma" na seção 1.
 
 - **Feito, wallpapers próprios** (2.8.0, pedido dele): `night-tide`, `aurora-curtain`, `dusk-layers`, `sparks` e `sound-cube` em
   `examples/`, ao lado dos quatro da 2.0.0. Só camadas procedurais (nenhuma imagem nem fonte de ninguém); cada um mostra

@@ -8,6 +8,16 @@
     "Céu",
     "Noite"
   ],
+  "i18n": {
+    "en": {
+      "title": "Northern lights",
+      "tags": [
+        "Nature",
+        "Sky",
+        "Night"
+      ]
+    }
+  },
   "loop": 60,
   "background": "#02030c",
   "parallax": 0.035,

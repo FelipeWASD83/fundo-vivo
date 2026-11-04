@@ -11,7 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>FundoVivo</AssemblyName>
     <RootNamespace>FundoVivo</RootNamespace>
-    <Version>2.9.1</Version>
+    <Version>2.10.0</Version>
     <Product>Fundo Vivo</Product>
     <Company>Felipe</Company>
     <ApplicationIcon>..\..\icone\icone.ico</ApplicationIcon>

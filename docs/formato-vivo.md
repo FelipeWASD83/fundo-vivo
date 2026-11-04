@@ -47,6 +47,20 @@ assets/...          imagens das camadas (png, jpg, webp)
 | `layers` | as camadas, desenhadas na ordem (a primeira fica atrás) | obrigatório |
 | `effects` | efeitos sobre a imagem inteira, aplicados na ordem | nenhum |
 
+### Título e tags em outros idiomas (`i18n`)
+
+O `title` e as `tags` de cima são o texto padrão. Para a Biblioteca mostrar outro texto quando a interface está em
+inglês (ou em português), acrescente o objeto opcional `i18n`, com a chave `"en"` e/ou `"pt"`:
+
+```json
+"title": "Noite de chuva",
+"tags": ["Chuva", "Noite"],
+"i18n": { "en": { "title": "Rainy night", "tags": ["Rain", "Night"] } }
+```
+
+O app usa o `title` e as `tags` do idioma atual quando existem; o que faltar vem do texto padrão de cima (um bloco só
+com `title` mantém as tags padrão). Os dois campos são opcionais dentro do bloco.
+
 ## Medidas e encaixe (o mesmo wallpaper em 3440×1440, 1080×1920 e 3840×2160)
 
 Toda medida é uma **fração do lado menor da tela** (`s`): na ultrawide, `s` = 1440; no monitor em pé, `s` = 1080.

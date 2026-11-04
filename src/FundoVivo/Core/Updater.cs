@@ -66,10 +66,10 @@ public static class Updater
                 {
                     Current = current,
                     Error = string.IsNullOrEmpty(Secrets.GitHubToken)
-                        ? "O GitHub não mostrou nenhuma versão publicada. Se o repositório é privado, guarde um token de leitura abaixo."
-                        : "Ainda não existe nenhuma versão publicada (ou o token não tem acesso ao repositório).",
+                        ? Loc.T("tool_upd_none_private")
+                        : Loc.T("tool_upd_none"),
                 };
-            if (!res.IsSuccessStatusCode) return new UpdateInfo { Current = current, Error = $"O GitHub respondeu {(int)res.StatusCode}." };
+            if (!res.IsSuccessStatusCode) return new UpdateInfo { Current = current, Error = Loc.T("tool_upd_http", (int)res.StatusCode) };
             var rel = JsonNode.Parse(await res.Content.ReadAsStringAsync());
             string latest = rel?["tag_name"]?.ToString()?.TrimStart('v', 'V') ?? "";
             JsonNode asset = (rel?["assets"] as JsonArray)?.FirstOrDefault(a => a?["name"]?.ToString()?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true);
@@ -87,7 +87,7 @@ public static class Updater
         }
         catch (Exception e)
         {
-            return new UpdateInfo { Current = current, Error = "Sem conexão com o GitHub (" + e.Message + ")." };
+            return new UpdateInfo { Current = current, Error = Loc.T("tool_upd_offline", e.Message) };
         }
     }
 
@@ -95,28 +95,28 @@ public static class Updater
     public static async Task InstallAsync(UpdateInfo info, IProgress<string> status)
     {
         if (AppPaths.IsDevelopmentCopy)
-            throw new InvalidOperationException("Esta é a cópia de desenvolvimento (tem .git ao lado). Atualize com git pull e ferramentas\\compilar.ps1.");
-        if (info.AssetApiUrl == null) throw new InvalidOperationException("A versão publicada não tem o pacote .zip.");
-        if (info.Sha256 == null) throw new InvalidOperationException("O GitHub não informou o SHA-256 do pacote; por segurança, nada foi instalado.");
+            throw new InvalidOperationException(Loc.T("tool_upd_dev"));
+        if (info.AssetApiUrl == null) throw new InvalidOperationException(Loc.T("tool_upd_no_zip"));
+        if (info.Sha256 == null) throw new InvalidOperationException(Loc.T("tool_upd_no_sha"));
 
         string root = AppPaths.UpdateFolder;
         string zip = Path.Combine(root, "package.zip");
         string staged = Path.Combine(root, "new");
         if (Directory.Exists(staged)) Directory.Delete(staged, true);
 
-        status.Report("Baixando a versão " + info.Latest + "...");
+        status.Report(Loc.T("tool_upd_downloading", info.Latest));
         using (var http = Client("application/octet-stream"))
         using (var stream = await http.GetStreamAsync(info.AssetApiUrl))
         using (var file = File.Create(zip))
             await stream.CopyToAsync(file);
 
-        status.Report("Conferindo o pacote...");
+        status.Report(Loc.T("tool_upd_checking"));
         string hash;
         using (var f = File.OpenRead(zip)) hash = Convert.ToHexString(SHA256.HashData(f)).ToLowerInvariant();
         if (hash != info.Sha256)
         {
             File.Delete(zip);
-            throw new InvalidOperationException("O pacote baixado não confere com o SHA-256 do GitHub. Nada foi trocado; tente de novo.");
+            throw new InvalidOperationException(Loc.T("tool_upd_hash_mismatch"));
         }
 
         using (var archive = ZipFile.OpenRead(zip))
@@ -125,16 +125,16 @@ public static class Updater
             foreach (var entry in archive.Entries)
             {
                 string target = Path.GetFullPath(Path.Combine(staged, entry.FullName));
-                if (!target.StartsWith(full, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Pacote com caminho inválido.");
+                if (!target.StartsWith(full, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException(Loc.T("tool_upd_bad_path"));
             }
             archive.ExtractToDirectory(staged);
         }
         File.Delete(zip);
         string appDir = File.Exists(Path.Combine(staged, "FundoVivo.exe")) ? staged
             : Directory.GetDirectories(staged).FirstOrDefault(d => File.Exists(Path.Combine(d, "FundoVivo.exe")))
-              ?? throw new InvalidOperationException("O pacote não tem o FundoVivo.exe.");
+              ?? throw new InvalidOperationException(Loc.T("tool_upd_no_exe"));
 
-        status.Report("Trocando os arquivos e reabrindo...");
+        status.Report(Loc.T("tool_upd_swapping"));
         string script = Path.Combine(root, "apply-update.ps1");
         File.WriteAllText(script, SwapScript, new UTF8Encoding(true));
         string args = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{script}\" -App \"{AppPaths.AppFolder}\" -New \"{appDir}\" -Work \"{root}\" -Version \"{info.Latest}\"";
@@ -156,7 +156,7 @@ param([string]$App, [string]$New, [string]$Work, [string]$Version)
 $ErrorActionPreference = 'Stop'
 $log = Join-Path $Work 'apply-update.log'
 function Note($t) { Add-Content -Path $log -Value ("{0:yyyy-MM-dd HH:mm:ss} {1}" -f (Get-Date), $t) -Encoding UTF8 }
-Note "atualizando para $Version"
+Note "updating to $Version"
 $exe = Join-Path $App 'FundoVivo.exe'
 for ($i = 0; $i -lt 60; $i++) {
     $vivos = Get-Process FundoVivo -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe }
@@ -173,7 +173,7 @@ try {
     Get-ChildItem -LiteralPath $App -Force | Move-Item -Destination $prev
     Get-ChildItem -LiteralPath $New -Force | Copy-Item -Destination $App -Recurse -Force
 } catch {
-    Note "falhou ao trocar: $_"
+    Note "swap failed: $_"
     Get-ChildItem -LiteralPath $App -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     Get-ChildItem -LiteralPath $prev -Force | Move-Item -Destination $App
     Start-Process $exe
@@ -181,10 +181,10 @@ try {
 }
 Start-Process $exe
 for ($i = 0; $i -lt 50; $i++) {
-    if (Test-Path $ok) { Note "versao $Version abriu"; Remove-Item (Join-Path $Work 'new') -Recurse -Force -ErrorAction SilentlyContinue; exit 0 }
+    if (Test-Path $ok) { Note "version $Version started"; Remove-Item (Join-Path $Work 'new') -Recurse -Force -ErrorAction SilentlyContinue; exit 0 }
     Start-Sleep -Milliseconds 500
 }
-Note "a versao nova nao confirmou; voltando para a anterior"
+Note "the new version did not confirm; going back to the previous one"
 Get-Process FundoVivo -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe } | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 800
 Get-ChildItem -LiteralPath $App -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue

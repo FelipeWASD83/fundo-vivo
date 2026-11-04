@@ -12,6 +12,7 @@ public static class Program
     public static int Main(string[] args)
     {
         string mode = args.Length > 0 ? args[0] : "";
+        Loc.Init(ConfigStore.Load().Language);
         switch (mode)
         {
             case "--check-load": return CheckLoad();
@@ -81,7 +82,8 @@ public static class Program
         using var mutex = new Mutex(true, @"Local\FundoVivoSettings", out bool first);
         if (!first)
         {
-            IntPtr existing = Win32.FindWindowW(null, AppPaths.AppName);
+            IntPtr existing = Win32.FindWindowW(null, "Fundo Vivo");
+            if (existing == IntPtr.Zero) existing = Win32.FindWindowW(null, "Living Wallpaper");
             if (existing != IntPtr.Zero)
             {
                 Win32.ShowWindow(existing, Win32.SW_RESTORE);

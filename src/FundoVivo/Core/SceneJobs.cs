@@ -122,7 +122,7 @@ public static class SceneJobs
 
     static void Run(SceneJob job)
     {
-        var status = new SceneJobStatus { JobId = job.Id, SceneTitle = job.SceneTitle, MonitorName = job.MonitorName, State = "running", Message = "Começando", Kind = job.Kind };
+        var status = new SceneJobStatus { JobId = job.Id, SceneTitle = job.SceneTitle, MonitorName = job.MonitorName, State = "running", Message = Loc.T("tool_starting"), Kind = job.Kind };
         SetStatus(status);
         using var cts = new CancellationTokenSource();
         using var watch = new Timer(_ => { if (File.Exists(CancelFile(job.Id))) cts.Cancel(); }, null, 500, 500);
@@ -166,13 +166,13 @@ public static class SceneJobs
                 Process.Start(new ProcessStartInfo(AppPaths.ExePath, "--engine") { UseShellExecute = false });
             status.State = "done";
             status.Progress = 1;
-            status.Message = "Pronto";
+            status.Message = Loc.T("tool_done");
             Log.Write($"{(package ? "vivo rendered" : gif ? "gif converted" : "scene converted")}: {title} {job.Width}x{job.Height} -> {result.Output} ({result.Width}x{result.Height}, margin {result.Margin:0.###}, {result.Fps} fps)");
         }
         catch (OperationCanceledException)
         {
             status.State = "canceled";
-            status.Message = "Cancelada";
+            status.Message = Loc.T("tool_canceled");
         }
         catch (Exception e)
         {

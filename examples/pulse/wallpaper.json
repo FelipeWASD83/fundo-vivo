@@ -4,6 +4,7 @@
   "title": "Pulso",
   "author": "Fundo Vivo",
   "tags": ["Abstrato", "Música"],
+  "i18n": { "en": { "title": "Pulse", "tags": ["Abstract", "Music"] } },
   "loop": 20,
   "background": "#05040a",
   "preview": "preview.jpg",

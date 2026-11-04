@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.10.0 (04/11/2026)
+
+### Novo
+- **Inglês.** Toda a interface (janela, bandeja, diálogos, avisos, mensagens de erro e do `--set`) existe em português e em inglês. Por padrão segue o idioma do Windows: português se ele estiver em português, inglês nos outros. Em Ajustes, o novo bloco **Idioma** deixa forçar Automático, Português ou English, e a janela se refaz na hora.
+- Em inglês o programa se chama **Living Wallpaper** (título da janela, bandeja e mensagens); em português continua Fundo Vivo.
+- Os dez wallpapers de exemplo ganharam nome e tags em inglês (Northern lights, Night tide, Aurora curtain, Dusk layers, Sparks, Sound cube, Pulse, Rainy night, Snow on the mountains, Fireflies at dusk).
+- O formato `.vivo` aceita um bloco opcional `i18n` com título e tags por idioma (`docs/formato-vivo.md`).
+
+### Mudou
+- Em inglês, as tags do Wallpaper Engine aparecem como vêm no arquivo (sem tradução), e a classificação mostra Everyone, Questionable e Mature.
+- As etiquetas de classificação das cenas ("Converte sem perder nada" e as outras) também mudam com o idioma.
+- Nomes de propriedades do Wallpaper Engine que ele não traduz (Cor do tema, Alinhamento...) saem em inglês no modo inglês.
+
 ## 2.9.1 (03/11/2026)
 
 ### Corrigido

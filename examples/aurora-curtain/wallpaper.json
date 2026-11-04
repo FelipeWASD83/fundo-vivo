@@ -8,6 +8,16 @@
     "Céu",
     "Noite"
   ],
+  "i18n": {
+    "en": {
+      "title": "Aurora curtain",
+      "tags": [
+        "Nature",
+        "Sky",
+        "Night"
+      ]
+    }
+  },
   "loop": 60,
   "background": "#02040a",
   "parallax": 0.025,

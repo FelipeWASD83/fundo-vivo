@@ -4,7 +4,7 @@ namespace FundoVivo.Core;
 
 public static class AppPaths
 {
-    public const string AppName = "Fundo Vivo";
+    public static string AppName => Loc.AppName;
     public const string Repository = "FelipeWASD83/fundo-vivo";
 
     // FUNDOVIVO_HOME moves every data folder somewhere else, so tests never touch the real config.

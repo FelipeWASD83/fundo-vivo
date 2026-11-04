@@ -60,14 +60,14 @@ public static class Packages
         try
         {
             using var zip = ZipFile.OpenRead(file);
-            var entry = zip.GetEntry("wallpaper.json") ?? throw new InvalidDataException("sem wallpaper.json");
+            var entry = zip.GetEntry("wallpaper.json") ?? throw new InvalidDataException("no wallpaper.json");
             JsonObject root;
             using (var s = entry.Open())
                 root = JsonNode.Parse(s, documentOptions: new System.Text.Json.JsonDocumentOptions
                 {
                     AllowTrailingCommas = true, CommentHandling = System.Text.Json.JsonCommentHandling.Skip,
-                })?.AsObject() ?? throw new InvalidDataException("wallpaper.json vazio");
-            if (root["format"]?.ToString() != "fundo-vivo") throw new InvalidDataException("não é um wallpaper do Fundo Vivo");
+                })?.AsObject() ?? throw new InvalidDataException("empty wallpaper.json");
+            if (root["format"]?.ToString() != "fundo-vivo") throw new InvalidDataException("not a fundo-vivo package");
 
             // the same test as the runtime's wantsSound: an audio animation, a spectrum or an electric layer (it follows
             // the mouse), a layer's "audio", an effect's "band" or a shake (it listens to the bass when no band is given)
@@ -87,12 +87,16 @@ public static class Packages
                 preview = Path.Combine(Previews, Key(file, "preview") + Path.GetExtension(previewEntry.Name).ToLowerInvariant());
                 if (!File.Exists(preview)) previewEntry.ExtractToFile(preview, true);
             }
-            string title = root["title"]?.ToString();
+            // "i18n": { "en": { "title", "tags" }, "pt": { ... } } overrides the top-level title and tags for that language
+            var local = (root["i18n"] as JsonObject)?[Loc.English ? "en" : "pt"] as JsonObject;
+            string title = local?["title"]?.ToString();
+            if (string.IsNullOrWhiteSpace(title)) title = root["title"]?.ToString();
+            var tagList = local?["tags"] as JsonArray ?? root["tags"] as JsonArray;
             return new VivoInfo
             {
                 Title = string.IsNullOrWhiteSpace(title) ? Path.GetFileNameWithoutExtension(file) : title.Trim(),
                 Author = root["author"]?.ToString(),
-                Tags = (root["tags"] as JsonArray)?.Select(n => n?.ToString()).Where(t => !string.IsNullOrWhiteSpace(t)).ToList() ?? new List<string>(),
+                Tags = tagList?.Select(n => n?.ToString()).Where(t => !string.IsNullOrWhiteSpace(t)).ToList() ?? new List<string>(),
                 Loop = Math.Clamp(Number(root["loop"], 20), 1, 120),
                 Parallax = Math.Clamp(Number(root["parallax"], 0), 0, 0.15),
                 Realtime = realtime,
@@ -130,7 +134,7 @@ public static class Packages
                     if (string.IsNullOrEmpty(e.Name)) continue;   // a folder
                     string target = Path.GetFullPath(Path.Combine(temp, e.FullName));
                     // A name like ../../x must never write outside the folder.
-                    if (!target.StartsWith(full, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("caminho inválido no pacote: " + e.FullName);
+                    if (!target.StartsWith(full, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("invalid path in the package: " + e.FullName);
                     string name = Path.GetFileName(target);
                     if (name.Equals("index.html", StringComparison.OrdinalIgnoreCase) || name.Equals("vivo.js", StringComparison.OrdinalIgnoreCase)) continue;
                     Directory.CreateDirectory(Path.GetDirectoryName(target));
@@ -178,7 +182,7 @@ public static class Packages
         {
             if (Runtime.TryGetValue(name, out var text)) return text;
             using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("runtime/" + name)
-                ?? throw new InvalidOperationException("runtime ausente: " + name);
+                ?? throw new InvalidOperationException("missing runtime: " + name);
             using var r = new StreamReader(s);
             return Runtime[name] = r.ReadToEnd();
         }

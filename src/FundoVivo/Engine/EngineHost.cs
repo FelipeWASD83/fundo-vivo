@@ -115,6 +115,7 @@ public sealed class EngineHost : NativeWindow
     {
         if (_exiting) return;
         _config = ConfigStore.Load();
+        Loc.Init(_config.Language);
         if (findLayer || _layer == IntPtr.Zero || !Win32.IsWindow(_layer))
         {
             IntPtr layer = Desktop.FindWallpaperLayer();
@@ -417,6 +418,10 @@ public sealed class EngineHost : NativeWindow
             ["monitors"] = monitors,
         };
         string text = root.ToJsonString();
+        // Before the early return below: a language change alters the tooltip but not the state file.
+        int playing = _slots.Values.Count(s => s.State == "playing");
+        _tray?.SetTip(_config.PausedByUser ? Loc.T("engine_tray_tip_paused", Loc.AppName) :
+            _slots.Count == 0 ? Loc.T("engine_tray_tip_empty", Loc.AppName) : Loc.T("engine_tray_tip_playing", Loc.AppName, playing, _slots.Count));
         if (text == _lastState) return;
         try
         {
@@ -427,9 +432,6 @@ public sealed class EngineHost : NativeWindow
             _lastState = text;
         }
         catch (Exception e) { Log.Write("state not written: " + e.Message); }
-        int playing = _slots.Values.Count(s => s.State == "playing");
-        _tray?.SetTip(_config.PausedByUser ? $"{AppPaths.AppName}: pausado" :
-            _slots.Count == 0 ? $"{AppPaths.AppName}: nenhum wallpaper escolhido" : $"{AppPaths.AppName}: {playing} de {_slots.Count} tocando");
     }
 
     void OnWinEvent(IntPtr hook, uint evt, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
@@ -591,6 +593,7 @@ public sealed class EngineHost : NativeWindow
                 case "settings":
                     // Fit, volume or Wallpaper Engine properties changed: apply without reloading anything.
                     _config = ConfigStore.Load();
+                    Loc.Init(_config.Language);
                     foreach (var s in _slots.Values)
                     {
                         s.Window?.Content?.Apply(_config.SettingsFor(s.Assignment.ItemId));
@@ -627,7 +630,7 @@ public sealed class EngineHost : NativeWindow
     void TrayMenu()
     {
         bool paused = _config.PausedByUser;
-        int choice = _tray.ShowMenu((1, "Abrir o Fundo Vivo", true), (2, paused ? "Continuar" : "Pausar tudo", true), (0, null, true), (3, "Sair", true));
+        int choice = _tray.ShowMenu((1, Loc.T("engine_tray_open", Loc.AppName), true), (2, paused ? Loc.T("engine_tray_resume") : Loc.T("engine_tray_pause"), true), (0, null, true), (3, Loc.T("engine_tray_quit"), true));
         switch (choice)
         {
             case 1: OpenSettings(); break;

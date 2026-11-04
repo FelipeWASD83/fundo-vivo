@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Windows;
@@ -23,12 +23,16 @@ public partial class SettingsWindow : Window
     readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(150) };
     readonly List<Action<AppConfig>> _pending = new();
     bool _loading;
+    bool _closed;
     CancellationTokenSource _convert;
     UpdateInfo _update;
+    readonly Action _themeChanged;
+    readonly EventHandler _displayChanged;
 
     public SettingsWindow()
     {
         InitializeComponent();
+        QuitButton.Content = Loc.T("settings_quit_app", Loc.AppName);
         _config = ConfigStore.Load();
         _stateTimer.Tick += (_, _) => RefreshState();
         _saveTimer.Tick += (_, _) => FlushSettings();
@@ -43,11 +47,22 @@ public partial class SettingsWindow : Window
         Closing += (_, _) => FlushSettings();
         SearchBox.GotFocus += (_, _) => SearchHint.Visibility = Visibility.Collapsed;
         SearchBox.LostFocus += (_, _) => SearchHint.Visibility = string.IsNullOrEmpty(SearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
-        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += (_, _) => Dispatcher.BeginInvoke(ReloadMonitors);
+        _displayChanged = (_, _) => Dispatcher.BeginInvoke(ReloadMonitors);
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += _displayChanged;
         SourceInitialized += (_, _) => ThemeManager.SetTitleBar(this);
         // Elements built in code take their brushes when created, so they are rebuilt with the new palette.
-        ThemeManager.Changed += () => { DrawMonitors(); RenderLibrary(); UpdateSidePanel(); RefreshState(); };
-        ThemeManager.WatchSystem(() => _config.Theme);
+        _themeChanged = () => { DrawMonitors(); RenderLibrary(); UpdateSidePanel(); RefreshState(); };
+        ThemeManager.Changed += _themeChanged;
+        // A window replaced after a language change must stop reacting to anything.
+        ThemeManager.WatchSystem(() => _closed ? AppTheme.Light : _config.Theme);
+        Closed += (_, _) =>
+        {
+            _closed = true;
+            _stateTimer.Stop();
+            _saveTimer.Stop();
+            ThemeManager.Changed -= _themeChanged;
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= _displayChanged;
+        };
     }
 
     // ------------------------------------------------------------------ config and engine
@@ -138,7 +153,7 @@ public partial class SettingsWindow : Window
             }
             else
             {
-                grid.Children.Add(new TextBlock { Text = "Papel de parede do Windows", FontSize = 11, Foreground = (Brush)FindResource("StageInk2"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(6) });
+                grid.Children.Add(new TextBlock { Text = Loc.T("settings_windows_wallpaper"), FontSize = 11, Foreground = (Brush)FindResource("StageInk2"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Margin = new Thickness(6) });
             }
 
             // The chosen monitor is lit and ringed; the others sit a little dimmer until the mouse is over them.
@@ -148,7 +163,7 @@ public partial class SettingsWindow : Window
                 Child = grid, Cursor = Cursors.Hand, CornerRadius = new CornerRadius(6 + ring), Padding = new Thickness(ring - 2),
                 BorderThickness = new Thickness(2), BorderBrush = selected ? (Brush)FindResource("StageInk") : Brushes.Transparent,
                 Background = Brushes.Transparent, Opacity = selected ? 1 : 0.62,
-                ToolTip = $"{m.Label}\n{m.Bounds.Width} × {m.Bounds.Height}, {m.RefreshRate:0} Hz{(m.Primary ? ", principal" : "")}\n{stateText}",
+                ToolTip = $"{m.Label}\n{m.Bounds.Width} × {m.Bounds.Height}, {m.RefreshRate:0} Hz{(m.Primary ? ", " + Loc.T("settings_primary") : "")}\n{stateText}",
             };
             if (!selected)
             {
@@ -173,22 +188,22 @@ public partial class SettingsWindow : Window
 
     (string, Brush) StateLabel(string monitorId)
     {
-        if (!_config.Monitors.ContainsKey(monitorId)) return ("Sem wallpaper animado", (Brush)FindResource("Ink3"));
+        if (!_config.Monitors.ContainsKey(monitorId)) return (Loc.T("settings_state_none"), (Brush)FindResource("Ink3"));
         string state = _engineState?["monitors"]?[monitorId]?["state"]?.ToString();
-        if (_engineState == null) return ("O Fundo Vivo está fechado", (Brush)FindResource("Ink3"));
+        if (_engineState == null) return (Loc.T("settings_state_engine_closed", Loc.AppName), (Brush)FindResource("Ink3"));
         return state switch
         {
-            "playing" => ("Tocando", (Brush)FindResource("Playing")),
-            "paused-fullscreen" => ("Pausado: tela cheia", (Brush)FindResource("Paused")),
-            "paused-covered" => ("Pausado: janela na frente", (Brush)FindResource("Paused")),
-            "unloaded-fullscreen" => ("Fora da memória: tela cheia", (Brush)FindResource("Paused")),
-            "paused-user" => ("Pausado por você", (Brush)FindResource("Paused")),
-            "paused-locked" => ("Pausado: tela bloqueada", (Brush)FindResource("Paused")),
-            "paused-program" => ($"Pausado: {_engineState?["program"]} aberto", (Brush)FindResource("Paused")),
-            "unloaded-program" => ($"Fora da memória: {_engineState?["program"]} aberto", (Brush)FindResource("Paused")),
-            "missing" => ("O arquivo não existe mais", (Brush)FindResource("Problem")),
-            "error" => ("Não deu para abrir (veja os registros)", (Brush)FindResource("Problem")),
-            _ => ("Abrindo", (Brush)FindResource("Ink3")),
+            "playing" => (Loc.T("settings_state_playing"), (Brush)FindResource("Playing")),
+            "paused-fullscreen" => (Loc.T("settings_state_paused_fullscreen"), (Brush)FindResource("Paused")),
+            "paused-covered" => (Loc.T("settings_state_paused_covered"), (Brush)FindResource("Paused")),
+            "unloaded-fullscreen" => (Loc.T("settings_state_unloaded_fullscreen"), (Brush)FindResource("Paused")),
+            "paused-user" => (Loc.T("settings_state_paused_user"), (Brush)FindResource("Paused")),
+            "paused-locked" => (Loc.T("settings_state_paused_locked"), (Brush)FindResource("Paused")),
+            "paused-program" => (Loc.T("settings_state_paused_program", _engineState?["program"]?.ToString() ?? ""), (Brush)FindResource("Paused")),
+            "unloaded-program" => (Loc.T("settings_state_unloaded_program", _engineState?["program"]?.ToString() ?? ""), (Brush)FindResource("Paused")),
+            "missing" => (Loc.T("settings_state_missing"), (Brush)FindResource("Problem")),
+            "error" => (Loc.T("settings_state_error"), (Brush)FindResource("Problem")),
+            _ => (Loc.T("settings_state_opening"), (Brush)FindResource("Ink3")),
         };
     }
 
@@ -210,8 +225,8 @@ public partial class SettingsWindow : Window
         if (state == null)
         {
             StatusDot.Fill = (Brush)FindResource("Ink3");
-            StatusText.Text = "Fechado: escolha um wallpaper para ligar";
-            PauseAllButton.Content = "Ligar";
+            StatusText.Text = Loc.T("settings_status_closed");
+            PauseAllButton.Content = Loc.T("settings_turn_on");
         }
         else
         {
@@ -220,12 +235,12 @@ public partial class SettingsWindow : Window
             int total = mons?.Count ?? 0, playing = mons?.Count(kv => kv.Value?["state"]?.ToString() == "playing") ?? 0;
             int pid = state["pid"]?.GetValue<int>() ?? 0;
             var (bytes, _) = pid > 0 ? ProcessTree.Measure(pid) : (0, 0);
-            string mem = bytes > 0 ? $" · {bytes / 1048576.0:0} MB de RAM" : "";
+            string mem = bytes > 0 ? Loc.T("settings_status_ram", (bytes / 1048576.0).ToString("0")) : "";
             StatusDot.Fill = (Brush)FindResource(paused ? "Paused" : playing > 0 ? "Playing" : "Ink3");
-            StatusText.Text = paused ? "Pausado por você" + mem
-                : total == 0 ? "Ligado, sem wallpaper" + mem
-                : $"{playing} de {total} tocando{mem}";
-            PauseAllButton.Content = paused ? "Continuar" : "Pausar tudo";
+            StatusText.Text = paused ? Loc.T("settings_state_paused_user") + mem
+                : total == 0 ? Loc.T("settings_status_on_empty") + mem
+                : Loc.T("settings_status_playing", playing, total) + mem;
+            PauseAllButton.Content = paused ? Loc.T("settings_resume") : Loc.T("settings_pause_all");
         }
         if (changed)
         {
@@ -254,13 +269,13 @@ public partial class SettingsWindow : Window
     void ReloadLibrary()
     {
         _scan = Library.Scan(_config);
-        string info = $"{_scan.Items.Count} wallpapers";
-        if (_scan.Scenes > 0) info += $" · {_scan.Scenes} são cenas do Wallpaper Engine, que viram vídeo quando você converte para um monitor";
-        if (_config.ScanWallpaperEngine && !_scan.FoundWallpaperEngine) info += " · Wallpaper Engine não encontrado neste PC";
+        string info = Loc.T("settings_library_count", _scan.Items.Count);
+        if (_scan.Scenes > 0) info += " · " + Loc.T("settings_library_scenes", _scan.Scenes);
+        if (_config.ScanWallpaperEngine && !_scan.FoundWallpaperEngine) info += " · " + Loc.T("settings_library_no_we");
         LibraryInfo.Text = info;
         WeInfo.Text = _scan.FoundWallpaperEngine
-            ? $"Lido direto da pasta do Steam, sem copiar nada. {_scan.Items.Count(i => i.FromWallpaperEngine)} de vídeo e web aparecem aqui."
-            : "Não achei o Wallpaper Engine nas bibliotecas do Steam.";
+            ? Loc.T("settings_we_found", _scan.Items.Count(i => i.FromWallpaperEngine))
+            : Loc.T("settings_we_not_found");
         RenderLibrary();
         DrawMonitors();
         UpdateSidePanel();
@@ -289,7 +304,7 @@ public partial class SettingsWindow : Window
         LibraryList.Items.Clear();
         foreach (var item in items) LibraryList.Items.Add(Card(item));
         if (items.Count == 0)
-            LibraryList.Items.Add(new TextBlock { Text = _scan.Items.Count == 0 ? "Nada na biblioteca ainda. Use Adicionar arquivo para colocar um vídeo, imagem ou página." : "Nada com esse filtro.", Style = (Style)FindResource("Muted"), Margin = new Thickness(2, 8, 0, 0) });
+            LibraryList.Items.Add(new TextBlock { Text = _scan.Items.Count == 0 ? Loc.T("settings_empty_library") : Loc.T("settings_empty_filter"), Style = (Style)FindResource("Muted"), Margin = new Thickness(2, 8, 0, 0) });
     }
 
     /// <summary>Each type filter says how many it holds, the count in the softer grey.</summary>
@@ -304,12 +319,12 @@ public partial class SettingsWindow : Window
             button.Content = text;
             button.Visibility = n > 0 || t == null || button.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         }
-        Set(FilterAll, "Todos", null);
-        Set(FilterVideo, "Vídeo", WallpaperType.Video);
-        Set(FilterWeb, "Web", WallpaperType.Web);
-        Set(FilterImage, "Imagem", WallpaperType.Image);
-        Set(FilterVivo, "Vivo", WallpaperType.Package);
-        Set(FilterScene, "Cena", WallpaperType.Scene);
+        Set(FilterAll, Loc.T("settings_filter_all"), null);
+        Set(FilterVideo, Loc.T("settings_type_video"), WallpaperType.Video);
+        Set(FilterWeb, Loc.T("settings_type_web"), WallpaperType.Web);
+        Set(FilterImage, Loc.T("settings_type_image"), WallpaperType.Image);
+        Set(FilterVivo, Loc.T("settings_type_vivo"), WallpaperType.Package);
+        Set(FilterScene, Loc.T("settings_type_scene"), WallpaperType.Scene);
     }
 
     /// <summary>The softer part of a label: the same colour as the rest, see-through, so it also reads on a lit (white) pill.</summary>
@@ -329,8 +344,8 @@ public partial class SettingsWindow : Window
         TagFilters.Children.Clear();
         int on = _tagFilter.Count + _ratingFilter.Count;
         var toggleText = new TextBlock();
-        toggleText.Inlines.Add(new System.Windows.Documents.Run(_tagsOpen ? "Tags  −" : "Tags  +") { FontWeight = FontWeights.SemiBold });
-        if (on > 0 && !_tagsOpen) toggleText.Inlines.Add(Faint($"  {on} {(on == 1 ? "ligada" : "ligadas")}"));
+        toggleText.Inlines.Add(new System.Windows.Documents.Run(_tagsOpen ? Loc.T("settings_tags_open") : Loc.T("settings_tags_closed")) { FontWeight = FontWeights.SemiBold });
+        if (on > 0 && !_tagsOpen) toggleText.Inlines.Add(Faint("  " + (on == 1 ? Loc.T("settings_tags_on_one", on) : Loc.T("settings_tags_on_many", on))));
         var toggle = new System.Windows.Controls.Primitives.ToggleButton { Content = toggleText, IsChecked = _tagsOpen, Style = (Style)FindResource("Chip") };
         toggle.Click += (_, _) => { _tagsOpen = !_tagsOpen; RenderLibrary(); };
         TagFilters.Children.Add(toggle);
@@ -352,14 +367,14 @@ public partial class SettingsWindow : Window
         {
             // One block, so the label never ends a line apart from its chips.
             var group = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 0, 0) };
-            group.Children.Add(new TextBlock { Text = "Classificação", Style = (Style)FindResource("Label"), Margin = new Thickness(0, 0, 8, 6), VerticalAlignment = VerticalAlignment.Center });
+            group.Children.Add(new TextBlock { Text = Loc.T("settings_rating_label"), Style = (Style)FindResource("Label"), Margin = new Thickness(0, 0, 8, 6), VerticalAlignment = VerticalAlignment.Center });
             foreach (var r in ratings)
                 group.Children.Add(Chip(r.name, r.count, _ratingFilter.Contains(r.name), on => { if (on) _ratingFilter.Add(r.name); else _ratingFilter.Remove(r.name); }));
             TagFilters.Children.Add(group);
         }
         if (_tagFilter.Count + _ratingFilter.Count > 0)
         {
-            var clear = new Button { Content = "Limpar", Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 6) };
+            var clear = new Button { Content = Loc.T("settings_clear"), Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 6) };
             clear.Click += (_, _) => { _tagFilter.Clear(); _ratingFilter.Clear(); RenderLibrary(); };
             TagFilters.Children.Add(clear);
         }
@@ -413,23 +428,23 @@ public partial class SettingsWindow : Window
         bool here = SelectedAssignment?.ItemId == item.Id;
 
         var text = new StackPanel { Margin = new Thickness(ringGap + 4, 8, ringGap + 4, 0) };
-        string tip = item.Title + (item.Tags.Count > 0 ? "\n" + string.Join(" · ", item.Tags) : "") + (item.Rating != null ? "\nClassificação: " + item.Rating : "");
+        string tip = item.Title + (item.Tags.Count > 0 ? "\n" + string.Join(" · ", item.Tags) : "") + (item.Rating != null ? "\n" + Loc.T("settings_rating_tip", item.Rating) : "");
         text.Children.Add(new TextBlock { Text = item.Title, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, ToolTip = tip });
-        string meta = TypeName(item.Type) + (item.FromWallpaperEngine ? " · Wallpaper Engine" : item.IsExample ? " · exemplo" : " · seu arquivo");
+        string meta = TypeName(item.Type) + (item.FromWallpaperEngine ? " · Wallpaper Engine" : item.IsExample ? " · " + Loc.T("settings_meta_example") : " · " + Loc.T("settings_meta_own"));
         if (item.Type == WallpaperType.Package)
         {
             string stamp = Packages.Stamp(item.File);
             var done = _config.ConvertedScenes.Where(c => c.SceneId == item.Id && c.SourceStamp == stamp && File.Exists(c.Output)).Select(c => $"{c.MonitorWidth}×{c.MonitorHeight}").Distinct().ToList();
-            meta += item.Realtime ? (item.ReactsToSound ? " · ao vivo, reage ao som" : " · ao vivo") : done.Count > 0 ? " · vídeo pronto: " + string.Join(", ", done) : " · vira vídeo ao usar";
+            meta += " · " + (item.Realtime ? (item.ReactsToSound ? Loc.T("settings_meta_live_sound") : Loc.T("settings_meta_live")) : done.Count > 0 ? Loc.T("settings_meta_video_ready", string.Join(", ", done)) : Loc.T("settings_meta_becomes_video"));
         }
         if (item.Type == WallpaperType.Scene)
         {
             var done = _config.ConvertedScenes.Where(c => c.SceneId == item.Id && File.Exists(c.Output)).Select(c => $"{c.MonitorWidth}×{c.MonitorHeight}").Distinct().ToList();
-            meta += done.Count > 0 ? " · convertida: " + string.Join(", ", done) : " · converter para usar";
+            meta += " · " + (done.Count > 0 ? Loc.T("settings_meta_converted", string.Join(", ", done)) : Loc.T("settings_meta_convert_to_use"));
         }
         text.Children.Add(new TextBlock { Text = meta, FontSize = 11.5, Foreground = (Brush)FindResource("Ink3"), Margin = new Thickness(0, 2, 0, 0) });
         if (onMonitors.Count > 0)
-            text.Children.Add(new TextBlock { Text = "Em: " + string.Join(", ", onMonitors), FontSize = 11.5, Foreground = (Brush)FindResource("Ink2"), Margin = new Thickness(0, 3, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
+            text.Children.Add(new TextBlock { Text = Loc.T("settings_on_monitors", string.Join(", ", onMonitors)), FontSize = 11.5, Foreground = (Brush)FindResource("Ink2"), Margin = new Thickness(0, 3, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
 
         var ring = new Border
         {
@@ -454,42 +469,42 @@ public partial class SettingsWindow : Window
         card.MouseLeftButtonUp += (_, _) => Assign(item);
 
         var menu = new ContextMenu();
-        var toPlaylist = new MenuItem { Header = "Pôr na playlist deste monitor" };
+        var toPlaylist = new MenuItem { Header = Loc.T("settings_menu_to_playlist") };
         toPlaylist.Click += (_, _) => AddToPlaylist(item);
         menu.Items.Add(toPlaylist);
-        var open = new MenuItem { Header = "Abrir a pasta" };
+        var open = new MenuItem { Header = Loc.T("settings_menu_open_folder") };
         open.Click += (_, _) => Process.Start("explorer.exe", $"/select,\"{item.File}\"");
         menu.Items.Add(open);
         if (item.Type == WallpaperType.Scene)
         {
-            var again = new MenuItem { Header = "Converter de novo para este monitor" };
+            var again = new MenuItem { Header = Loc.T("settings_menu_convert_again") };
             again.Click += (_, _) => ConvertScene(item);
             menu.Items.Add(again);
             if (_config.ConvertedScenes.Any(c => c.SceneId == item.Id))
             {
-                var drop = new MenuItem { Header = "Apagar as conversões desta cena" };
+                var drop = new MenuItem { Header = Loc.T("settings_menu_drop_scene") };
                 drop.Click += (_, _) => DropSceneConversions(item);
                 menu.Items.Add(drop);
             }
         }
         if (item.Type == WallpaperType.Package && !item.Realtime)
         {
-            var again = new MenuItem { Header = "Renderizar de novo para este monitor" };
+            var again = new MenuItem { Header = Loc.T("settings_menu_render_again") };
             again.Click += (_, _) => RenderPackage(item);
             menu.Items.Add(again);
             if (_config.ConvertedScenes.Any(c => c.SceneId == item.Id))
             {
-                var drop = new MenuItem { Header = "Apagar os vídeos feitos deste wallpaper" };
+                var drop = new MenuItem { Header = Loc.T("settings_menu_drop_videos") };
                 drop.Click += (_, _) => DropSceneConversions(item);
                 menu.Items.Add(drop);
             }
         }
         if (!item.FromWallpaperEngine && !item.IsExample)
         {
-            var tags = new MenuItem { Header = "Editar tags" };
+            var tags = new MenuItem { Header = Loc.T("settings_menu_edit_tags") };
             tags.Click += (_, _) => EditTags(item);
             menu.Items.Add(tags);
-            var remove = new MenuItem { Header = "Tirar da biblioteca" };
+            var remove = new MenuItem { Header = Loc.T("settings_menu_remove") };
             remove.Click += (_, _) =>
             {
                 Mutate(c => c.UserItems.RemoveAll(u => u.Id == item.Id));
@@ -514,7 +529,14 @@ public partial class SettingsWindow : Window
         ReloadLibrary();
     }
 
-    static string TypeName(WallpaperType t) => t switch { WallpaperType.Video => "Vídeo", WallpaperType.Web => "Web", WallpaperType.Scene => "Cena", WallpaperType.Package => "Vivo", _ => "Imagem" };
+    static string TypeName(WallpaperType t) => t switch
+    {
+        WallpaperType.Video => Loc.T("settings_type_video"),
+        WallpaperType.Web => Loc.T("settings_type_web"),
+        WallpaperType.Scene => Loc.T("settings_type_scene"),
+        WallpaperType.Package => Loc.T("settings_type_vivo"),
+        _ => Loc.T("settings_type_image"),
+    };
 
     void Assign(LibraryItem item)
     {
@@ -542,7 +564,7 @@ public partial class SettingsWindow : Window
 
     void Enqueue(SceneJob job, string problem)
     {
-        if (job == null) { MessageBox.Show(this, "Não deu para preparar esse wallpaper: " + problem + ".", AppPaths.AppName); return; }
+        if (job == null) { MessageBox.Show(this, Loc.T("settings_prepare_failed", problem), AppPaths.AppName); return; }
         SceneJobs.Enqueue(job);
         _sceneJobSeen = null;
         RefreshSceneJob();
@@ -559,11 +581,11 @@ public partial class SettingsWindow : Window
     {
         var monitor = SelectedMonitor;
         if (monitor == null) return;
-        if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, "Para converter cenas, o ffmpeg precisa estar no PATH.", AppPaths.AppName); return; }
+        if (VideoConverter.FindFfmpeg() == null) { MessageBox.Show(this, Loc.T("settings_need_ffmpeg"), AppPaths.AppName); return; }
         // Cut straight from its sprite sheet: the loop is the scene's own, so there is nothing to choose.
         if (item.Traits.HasFlag(SceneTraits.Direct)) { Enqueue(Placement.JobFor(_config, item, monitor, out string problem), problem); return; }
         string we = SceneConverter.FindWallpaperEngine();
-        if (we == null) { MessageBox.Show(this, "O Wallpaper Engine não foi encontrado: é ele que desenha a cena para a gravação.", AppPaths.AppName); return; }
+        if (we == null) { MessageBox.Show(this, Loc.T("settings_need_we"), AppPaths.AppName); return; }
         var dialog = new SceneDialog(this, item, monitor, _config.SceneDuration, _config.SceneCrossfade, SceneConverter.WallpaperEngineFps(we), _config.SettingsFor(item.Id));
         if (dialog.ShowDialog() != true) return;
         double duration = dialog.Duration, crossfade = dialog.Crossfade;
@@ -617,30 +639,33 @@ public partial class SettingsWindow : Window
         _sceneJob = s;
         if (!running && !recent && queued == 0) { SceneJobBar.Visibility = Visibility.Collapsed; return; }
         SceneJobBar.Visibility = Visibility.Visible;
-        string more = queued > 0 ? $" · mais {queued} na fila" : "";
+        string more = queued > 0 ? " · " + Loc.T("settings_job_more", queued) : "";
         if (running)
         {
-            SceneJobText.Text = $"{(s.Kind == "package" ? "Renderizando" : "Convertendo")} «{s.SceneTitle}» para {s.MonitorName}: {s.Message} {s.Progress:P0}{more}";
+            string progressText = s.Progress.ToString("P0");
+            SceneJobText.Text = (s.Kind == "package"
+                ? Loc.T("settings_job_running_render", s.SceneTitle, s.MonitorName, s.Message, progressText)
+                : Loc.T("settings_job_running_convert", s.SceneTitle, s.MonitorName, s.Message, progressText)) + more;
             SceneJobProgress.Visibility = Visibility.Visible;
             SceneJobProgress.Value = s.Progress;
-            SceneJobButton.Content = "Cancelar";
+            SceneJobButton.Content = Loc.T("settings_cancel");
         }
         else if (recent)
         {
             SceneJobText.Text = s.State switch
             {
-                "done" => s.Kind == "package" ? $"«{s.SceneTitle}» virou vídeo e foi para {s.MonitorName}.{more}" : $"«{s.SceneTitle}» convertida e posta em {s.MonitorName}.{more}",
-                "canceled" => $"{(s.Kind == "package" ? "Renderização" : "Conversão")} de «{s.SceneTitle}» cancelada.{more}",
-                _ => $"{(s.Kind == "package" ? "A renderização" : "A conversão")} de «{s.SceneTitle}» falhou: {s.Message}{more}",
+                "done" => (s.Kind == "package" ? Loc.T("settings_job_done_package", s.SceneTitle, s.MonitorName) : Loc.T("settings_job_done_scene", s.SceneTitle, s.MonitorName)) + more,
+                "canceled" => (s.Kind == "package" ? Loc.T("settings_job_canceled_render", s.SceneTitle) : Loc.T("settings_job_canceled_convert", s.SceneTitle)) + more,
+                _ => (s.Kind == "package" ? Loc.T("settings_job_failed_render", s.SceneTitle, s.Message) : Loc.T("settings_job_failed_convert", s.SceneTitle, s.Message)) + more,
             };
             SceneJobProgress.Visibility = Visibility.Collapsed;
-            SceneJobButton.Content = "Fechar";
+            SceneJobButton.Content = Loc.T("settings_close");
         }
         else
         {
-            SceneJobText.Text = $"Esperando para converter{more}";
+            SceneJobText.Text = Loc.T("settings_job_waiting") + more;
             SceneJobProgress.Visibility = Visibility.Collapsed;
-            SceneJobButton.Content = "Fechar";
+            SceneJobButton.Content = Loc.T("settings_close");
         }
     }
 
@@ -655,9 +680,9 @@ public partial class SettingsWindow : Window
         string Join(string[] exts) => string.Join(";", exts.Select(x => "*" + x));
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Escolha vídeos, imagens, páginas HTML ou wallpapers .vivo",
+            Title = Loc.T("settings_dialog_title"),
             Multiselect = true,
-            Filter = $"Wallpapers|{Join(Library.VideoExtensions)};{Join(Library.ImageExtensions)};{Join(Library.WebExtensions)};*{Packages.Extension}|Vídeo|{Join(Library.VideoExtensions)}|Imagem|{Join(Library.ImageExtensions)}|Página web|{Join(Library.WebExtensions)}|Fundo Vivo|*{Packages.Extension}",
+            Filter = $"{Loc.T("settings_dialog_wallpapers")}|{Join(Library.VideoExtensions)};{Join(Library.ImageExtensions)};{Join(Library.WebExtensions)};*{Packages.Extension}|{Loc.T("settings_type_video")}|{Join(Library.VideoExtensions)}|{Loc.T("settings_type_image")}|{Join(Library.ImageExtensions)}|{Loc.T("settings_dialog_webpage")}|{Join(Library.WebExtensions)}|{Loc.AppName}|*{Packages.Extension}",
         };
         if (dialog.ShowDialog(this) != true) return;
         Mutate(c =>
@@ -695,7 +720,7 @@ public partial class SettingsWindow : Window
             if (m != null)
             {
                 SideMonitorName.Inlines.Add(new System.Windows.Documents.Run(m.Label));
-                var details = new System.Windows.Documents.Run($"   {m.Bounds.Width}×{m.Bounds.Height} · {m.RefreshRate:0} Hz{(m.Primary ? " · principal" : "")}")
+                var details = new System.Windows.Documents.Run($"   {m.Bounds.Width}×{m.Bounds.Height} · {m.RefreshRate:0} Hz{(m.Primary ? " · " + Loc.T("settings_primary") : "")}")
                 { FontFamily = (FontFamily)FindResource("Text"), FontWeight = FontWeights.Normal, FontSize = 12.5 };
                 details.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Ink2");
                 SideMonitorName.Inlines.Add(details);
@@ -704,8 +729,8 @@ public partial class SettingsWindow : Window
             if (a == null)
             {
                 SideEmpty.Visibility = Visibility.Visible;
-                SideTitle.Text = "Nenhum wallpaper animado";
-                SideDetail.Text = "Escolha um na biblioteca ao lado.";
+                SideTitle.Text = Loc.T("settings_side_none");
+                SideDetail.Text = Loc.T("settings_side_pick");
                 SideControls.Visibility = Visibility.Collapsed;
                 return;
             }
@@ -763,19 +788,19 @@ public partial class SettingsWindow : Window
         var a = SelectedAssignment;
         if (a == null || _selectedMonitor == null) return;
         var (state, _) = StateLabel(_selectedMonitor);
-        string source = _scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.FromWallpaperEngine == true ? "Wallpaper Engine" : "seu arquivo";
+        string source = _scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.FromWallpaperEngine == true ? "Wallpaper Engine" : Loc.T("settings_meta_own");
         SideDetail.Text = a.Package != null
             ? a.Type == WallpaperType.Web
-                ? (_scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.ReactsToSound == true ? $"Vivo ao vivo (reage ao som) · {state}" : $"Vivo ao vivo · {state}")
-                : $"Vivo renderizado em vídeo · {state}" + (a.ParallaxMargin > 0 ? ". O parallax virou um pan com o mouse: o vídeo inteiro anda junto." : "")
+                ? (_scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.ReactsToSound == true ? Loc.T("settings_side_vivo_live_sound", state) : Loc.T("settings_side_vivo_live", state))
+                : Loc.T("settings_side_vivo_video", state) + (a.ParallaxMargin > 0 ? ". " + Loc.T("settings_side_parallax_pan") : "")
             : a.SceneId != null && Path.GetExtension(_scan.Items.FirstOrDefault(i => i.Id == a.ItemId)?.File ?? "").Equals(".gif", StringComparison.OrdinalIgnoreCase)
-            ? $"GIF animado, tocando como vídeo · {state}"
+            ? Loc.T("settings_side_gif", state)
             : a.SceneId != null
-            ? $"Cena convertida · {state}" + (a.ParallaxMargin > 0 ? ". O parallax virou um pan com o mouse: o vídeo inteiro anda junto, sem a profundidade de cada camada." : "")
+            ? Loc.T("settings_side_scene", state) + (a.ParallaxMargin > 0 ? ". " + Loc.T("settings_side_scene_parallax_pan") : "")
             : $"{TypeName(a.Type)} · {source} · {state}";
     }
 
-    static string VolumeLabel(int v, WallpaperType t) => v <= 0 ? "Mudo" : t == WallpaperType.Web ? "Ligado" : $"{v}%";
+    static string VolumeLabel(int v, WallpaperType t) => v <= 0 ? Loc.T("settings_volume_mute") : t == WallpaperType.Web ? Loc.T("settings_volume_on") : $"{v}%";
 
     void Fit_Checked(object sender, RoutedEventArgs e)
     {
@@ -830,11 +855,11 @@ public partial class SettingsWindow : Window
             case WallpaperType.Web:
                 int fps = _config.EffectiveFps(m.RefreshRate);
                 SideFps.Text = fps < _config.FpsLimit
-                    ? $"Roda a {fps} fps, o máximo deste monitor ({hz} Hz)."
-                    : $"Roda a {fps} fps, o limite escolhido em Ajustes.";
+                    ? Loc.T("settings_fps_max", fps, hz)
+                    : Loc.T("settings_fps_limit", fps);
                 break;
             case WallpaperType.Image:
-                SideFps.Text = "Imagem parada: não desenha quadro nenhum.";
+                SideFps.Text = Loc.T("settings_fps_image");
                 break;
             case WallpaperType.Video:
                 string file = a.File;
@@ -849,8 +874,8 @@ public partial class SettingsWindow : Window
                 catch (Exception e) { Log.Write("frame rate: " + e.Message); }
                 if (SelectedAssignment?.File != file) return;
                 SideFps.Text = rate > 0
-                    ? $"Vídeo toca no fps em que foi gravado ({rate:0.##} fps); o limite de fps não muda vídeo."
-                    : "Vídeo toca no fps em que foi gravado; o limite de fps não muda vídeo.";
+                    ? Loc.T("settings_fps_video_rate", rate.ToString("0.##"))
+                    : Loc.T("settings_fps_video");
                 break;
         }
     }
@@ -866,15 +891,15 @@ public partial class SettingsWindow : Window
         OptimizeSection.Visibility = Visibility.Visible;
         if (_convert != null) return;
         OptimizeButton.Visibility = Visibility.Collapsed;
-        OptimizeText.Text = "Lendo o vídeo...";
+        OptimizeText.Text = Loc.T("settings_optimize_reading");
         var fit = _config.SettingsFor(a.ItemId).Fit;
         var existing = _config.Converted.FirstOrDefault(c => string.Equals(c.Source, a.File, StringComparison.OrdinalIgnoreCase)
             && c.Width == m.Bounds.Width && c.Height == m.Bounds.Height && c.Fit == fit && File.Exists(c.Output) && c.SourceLength == AppConfig.SafeLength(a.File));
         if (existing != null)
         {
             long saved = AppConfig.SafeLength(existing.Output);
-            OptimizeText.Text = $"Usando a cópia feita para este monitor ({m.Bounds.Width}×{m.Bounds.Height}, {saved / 1048576.0:0} MB). O arquivo original continua intacto.";
-            OptimizeButton.Content = "Voltar ao original";
+            OptimizeText.Text = Loc.T("settings_optimize_using", m.Bounds.Width, m.Bounds.Height, (saved / 1048576.0).ToString("0"));
+            OptimizeButton.Content = Loc.T("settings_optimize_undo");
             OptimizeButton.Tag = "undo";
             OptimizeButton.Visibility = Visibility.Visible;
             return;
@@ -892,23 +917,23 @@ public partial class SettingsWindow : Window
         OptimizeButton.Tag = seconds;
         if (vw == 0)
         {
-            OptimizeText.Text = "Não deu para ler o tamanho do vídeo.";
+            OptimizeText.Text = Loc.T("settings_optimize_unreadable");
             return;
         }
         // Work out what the screen actually needs: with Fill, the part of the video that ends up visible.
         bool bigger = (long)vw * vh > (long)m.Bounds.Width * m.Bounds.Height * 1.15;
         if (!bigger)
         {
-            OptimizeText.Text = $"O vídeo tem {vw}×{vh}, que já é do tamanho do monitor ou menor. Não tem o que ganhar convertendo.";
+            OptimizeText.Text = Loc.T("settings_optimize_no_gain", vw, vh);
             return;
         }
         if (VideoConverter.FindFfmpeg() == null)
         {
-            OptimizeText.Text = $"O vídeo tem {vw}×{vh} e o monitor {m.Bounds.Width}×{m.Bounds.Height}. Para converter, o ffmpeg precisa estar no PATH.";
+            OptimizeText.Text = Loc.T("settings_optimize_no_ffmpeg", vw, vh, m.Bounds.Width, m.Bounds.Height);
             return;
         }
-        OptimizeText.Text = $"O vídeo tem {vw}×{vh} e o monitor {m.Bounds.Width}×{m.Bounds.Height}. Uma cópia do tamanho exato do monitor fica igual na tela e gasta bem menos para tocar. O original não é mexido.";
-        OptimizeButton.Content = "Converter para este monitor";
+        OptimizeText.Text = Loc.T("settings_optimize_offer", vw, vh, m.Bounds.Width, m.Bounds.Height);
+        OptimizeButton.Content = Loc.T("settings_optimize_convert");
         OptimizeButton.Visibility = Visibility.Visible;
     }
 
@@ -941,7 +966,7 @@ public partial class SettingsWindow : Window
         var progress = new Progress<double>(p =>
         {
             OptimizeProgress.Value = p;
-            OptimizeText.Text = $"Convertendo para {m.Bounds.Width}×{m.Bounds.Height}... {p:P0}";
+            OptimizeText.Text = Loc.T("settings_optimize_progress", m.Bounds.Width, m.Bounds.Height, p.ToString("P0"));
         });
         try
         {
@@ -998,6 +1023,9 @@ public partial class SettingsWindow : Window
             ThemeSystem.IsChecked = _config.Theme == AppTheme.System;
             ThemeLight.IsChecked = _config.Theme == AppTheme.Light;
             ThemeDark.IsChecked = _config.Theme == AppTheme.Dark;
+            LangPt.IsChecked = _config.Language == "pt";
+            LangEn.IsChecked = _config.Language == "en";
+            LangAuto.IsChecked = _config.Language is not ("pt" or "en");
             RenderProgramRules();
             FpsChoices.Children.Clear();
             foreach (int fps in AppConfig.FpsChoices)
@@ -1011,10 +1039,10 @@ public partial class SettingsWindow : Window
                 choice.Checked += Fps_Checked;
                 FpsChoices.Children.Add(choice);
             }
-            VersionText.Text = $"Versão {AppPaths.Version}" + (AppPaths.IsDevelopmentCopy ? " · cópia de desenvolvimento (atualiza pelo git e pelo compilar.ps1)" : "");
+            VersionText.Text = Loc.T("settings_version", AppPaths.Version) + (AppPaths.IsDevelopmentCopy ? " · " + Loc.T("settings_dev_copy") : "");
             TokenText.Text = string.IsNullOrEmpty(Secrets.GitHubToken)
-                ? "Token de leitura (fine-grained, só este repositório, Contents: leitura). Fica guardado protegido pelo Windows, fora do app."
-                : "Já tem um token guardado. Para trocar, cole outro e guarde; para tirar, guarde vazio.";
+                ? Loc.T("settings_token_hint")
+                : Loc.T("settings_token_saved");
         }
         finally { _loading = false; }
     }
@@ -1031,9 +1059,11 @@ public partial class SettingsWindow : Window
         string current = SelectedAssignment?.ItemId;
         PlaylistHint.Text = count switch
         {
-            0 => "Botão direito num wallpaper da biblioteca: Pôr na playlist deste monitor. Com dois ou mais, ele troca sozinho.",
-            1 => "Com mais um, ele troca sozinho.",
-            _ => pl.Enabled ? $"Troca a cada {Interval(pl.Minutes)}, {(pl.Shuffle ? "aleatório" : "em ordem")}, só enquanto o monitor está tocando (nunca no meio de um jogo)." : "Parada: ligue Trocar sozinho.",
+            0 => Loc.T("settings_playlist_hint_none", Loc.T("settings_menu_to_playlist")),
+            1 => Loc.T("settings_playlist_hint_one"),
+            _ => pl.Enabled
+                ? Loc.T("settings_playlist_hint_on", Interval(pl.Minutes), pl.Shuffle ? Loc.T("settings_playlist_order_shuffle") : Loc.T("settings_playlist_order_inorder"))
+                : Loc.T("settings_playlist_hint_off", Loc.T("settings_playlist_auto")),
         };
         for (int i = 0; i < count; i++)
         {
@@ -1045,7 +1075,7 @@ public partial class SettingsWindow : Window
             var name = new TextBlock { Text = e.Title, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, FontWeight = e.ItemId == current ? FontWeights.SemiBold : FontWeights.Normal };
             if (e.ItemId != current) name.SetResourceReference(TextBlock.ForegroundProperty, "Ink2");
             row.Children.Add(name);
-            var remove = new Button { Content = "Tirar", Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(8, 0, 0, 0) };
+            var remove = new Button { Content = Loc.T("settings_remove"), Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(8, 0, 0, 0) };
             remove.Click += (_, _) => { Mutate(c => { if (c.Playlists.TryGetValue(m.Id, out var p) && index < p.Entries.Count) p.Entries.RemoveAt(index); }); Notify("settings"); RenderPlaylist(); };
             Grid.SetColumn(remove, 1);
             row.Children.Add(remove);
@@ -1070,7 +1100,7 @@ public partial class SettingsWindow : Window
         _loading = loading;
     }
 
-    static string Interval(int minutes) => minutes < 60 ? $"{minutes} min" : minutes % 60 == 0 ? $"{minutes / 60} h" : $"{minutes} min";
+    static string Interval(int minutes) => minutes < 60 ? Loc.T("settings_interval_min", minutes) : minutes % 60 == 0 ? Loc.T("settings_interval_hour", minutes / 60) : Loc.T("settings_interval_min", minutes);
 
     void Playlist_Changed(object sender, RoutedEventArgs e)
     {
@@ -1094,7 +1124,7 @@ public partial class SettingsWindow : Window
         if (m == null) return;
         if (Placement.Ready(_config, item, m) is not { } ready)
         {
-            MessageBox.Show(this, $"«{item.Title}» precisa virar vídeo para este monitor antes de entrar na playlist: clique nele uma vez e, quando estiver pronto, ponha de novo.", AppPaths.AppName);
+            MessageBox.Show(this, Loc.T("settings_playlist_needs_video", item.Title), AppPaths.AppName);
             return;
         }
         var current = SelectedAssignment;
@@ -1147,7 +1177,7 @@ public partial class SettingsWindow : Window
             row.Children.Add(new TextBlock { Text = r.Exe, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
             var bar = new Border { Style = (Style)FindResource("SegmentBar"), Margin = new Thickness(8, 0, 0, 0) };
             var seg = new StackPanel { Orientation = Orientation.Horizontal };
-            foreach (var (action, label) in new[] { (ProgramAction.Pause, "Pausar"), (ProgramAction.Unload, "Tirar da memória") })
+            foreach (var (action, label) in new[] { (ProgramAction.Pause, Loc.T("settings_pause")), (ProgramAction.Unload, Loc.T("settings_unload")) })
             {
                 var choice = new RadioButton { Content = label, GroupName = "rule" + i, Style = (Style)FindResource("Segment"), IsChecked = r.Action == action };
                 if (action == ProgramAction.Unload) choice.Margin = new Thickness(0);
@@ -1162,7 +1192,7 @@ public partial class SettingsWindow : Window
             bar.Child = seg;
             Grid.SetColumn(bar, 1);
             row.Children.Add(bar);
-            var remove = new Button { Content = "Tirar", Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(6, 0, 0, 0) };
+            var remove = new Button { Content = Loc.T("settings_remove"), Style = (Style)FindResource("Quiet"), Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(6, 0, 0, 0) };
             remove.Click += (_, _) => { Mutate(c => { if (index < c.Pause.Programs.Count) c.Pause.Programs.RemoveAt(index); }); Notify("settings"); RenderProgramRules(); };
             Grid.SetColumn(remove, 2);
             row.Children.Add(remove);
@@ -1239,12 +1269,45 @@ public partial class SettingsWindow : Window
         ThemeManager.Apply(theme);
     }
 
+    void Language_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_loading || !IsLoaded) return;
+        string value = LangPt.IsChecked == true ? "pt" : LangEn.IsChecked == true ? "en" : "auto";
+        if (value == (_config.Language ?? "auto")) return;
+        FlushSettings();
+        Mutate(c => c.Language = value);
+        Loc.Init(value);
+        Notify("settings");
+        // Every text is read when a window is built, so the window is replaced by a new one in the same place.
+        Dispatcher.BeginInvoke(RebuildForLanguage);
+    }
+
+    void RebuildForLanguage()
+    {
+        if (_closed) return;
+        var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        var fresh = new SettingsWindow
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Left = bounds.Left, Top = bounds.Top, Width = bounds.Width, Height = bounds.Height,
+            WindowState = WindowState,
+        };
+        fresh._selectedMonitor = _selectedMonitor;
+        fresh.TabSettings.IsChecked = true;
+        _stateTimer.Stop();
+        // ShutdownMode is OnMainWindowClose: the old window must stop being the main window before it closes.
+        Application.Current.MainWindow = fresh;
+        fresh.Show();
+        fresh.Activate();
+        Close();
+    }
+
     void StartWithWindows_Click(object sender, RoutedEventArgs e)
     {
         try { StartupEntry.Enabled = StartWithWindows.IsChecked == true; }
         catch (Exception ex)
         {
-            MessageBox.Show(this, "Não deu para mudar: " + ex.Message, AppPaths.AppName);
+            MessageBox.Show(this, Loc.T("settings_start_failed", ex.Message), AppPaths.AppName);
             StartWithWindows.IsChecked = StartupEntry.Enabled;
         }
     }
@@ -1253,13 +1316,13 @@ public partial class SettingsWindow : Window
     {
         CheckUpdateButton.IsEnabled = false;
         InstallUpdateButton.Visibility = Visibility.Collapsed;
-        UpdateText.Text = "Perguntando ao GitHub...";
+        UpdateText.Text = Loc.T("settings_update_asking");
         _update = await Updater.CheckAsync();
         CheckUpdateButton.IsEnabled = true;
         if (_update.Error != null) { UpdateText.Text = _update.Error; return; }
-        if (!_update.IsNewer) { UpdateText.Text = $"Você já está na versão mais nova ({_update.Latest})."; return; }
+        if (!_update.IsNewer) { UpdateText.Text = Loc.T("settings_update_current", _update.Latest); return; }
         string notes = _update.Notes.Length > 600 ? _update.Notes[..600] + "..." : _update.Notes;
-        UpdateText.Text = $"Versão {_update.Latest} disponível.\n\n{notes}".Trim();
+        UpdateText.Text = Loc.T("settings_update_available", _update.Latest, notes).Trim();
         InstallUpdateButton.Visibility = Visibility.Visible;
     }
 
@@ -1309,7 +1372,7 @@ public partial class SettingsWindow : Window
                 });
                 ReloadLibrary();
                 _tagFilter.Add(Tags.Key("Anime"));
-                _ratingFilter.Add("Livre");
+                _ratingFilter.Add(Tags.RatingOrder[0]);
                 RenderLibrary();
                 int both = LibraryList.Items.OfType<FrameworkElement>().Count(x => x is Border);
                 _ratingFilter.Clear();
@@ -1373,6 +1436,16 @@ public partial class SettingsWindow : Window
                 dialog.Close();
                 break;
             }
+            case "language":
+                // argument: auto | pt | en, chosen with the same radio button a click would use; the window is rebuilt.
+                (argument == "pt" ? LangPt : argument == "en" ? LangEn : LangAuto).IsChecked = true;
+                Dispatcher.BeginInvoke(async () =>
+                {
+                    await Task.Delay(1500);
+                    var main = Application.Current.MainWindow as SettingsWindow;
+                    Log.Write($"selftest language {argument}: english={Loc.English} saved={ConfigStore.Load().Language} rebuilt={main != this} title={main?.Title} tab={(main?.TabSettings.IsChecked == true ? "settings" : "library")}");
+                });
+                break;
             case "theme":
                 // argument: light | dark, chosen with the same radio button a click would use.
                 (argument == "dark" ? ThemeDark : ThemeLight).IsChecked = true;

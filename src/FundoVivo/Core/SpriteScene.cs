@@ -56,8 +56,8 @@ public static class SpriteScene
     /// <summary>The video for one monitor, or null when the sheet turns out to be something this does not read.</summary>
     public static async Task<SceneResult> ConvertAsync(SceneJob job, SceneProject scene, string texPath, IProgress<(double, string)> progress, CancellationToken cancel)
     {
-        string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException("O ffmpeg não foi encontrado no PATH.");
-        progress.Report((0.02, "Lendo a folha de quadros"));
+        string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException(Loc.T("tool_ffmpeg_missing"));
+        progress.Report((0.02, Loc.T("tool_sprite_reading")));
         WeTexture tex;
         try
         {
@@ -104,7 +104,7 @@ public static class SpriteScene
         string lastError = "";
         foreach (bool nvenc in new[] { true, false })
         {
-            progress.Report((0.1, "Montando o vídeo"));
+            progress.Report((0.1, Loc.T("tool_sprite_building")));
             // Covers the monitor like Wallpaper Engine does, cropping what is left over; pixel art stays sharp.
             string args = $"-y -hide_banner -nostats -loglevel error -f rawvideo -pix_fmt rgba -s {fw}x{fh} -framerate {r} -i pipe:0 " +
                           $"-vf scale={w}:{h}:force_original_aspect_ratio=increase:flags={filter},crop={w}:{h},scale=out_color_matrix=bt709:out_range=tv,format=yuv420p " +
@@ -126,7 +126,7 @@ public static class SpriteScene
                         cancel.ThrowIfCancellationRequested();
                         tex.CopyFrame(frames[k], frame);
                         await stdin.WriteAsync(frame, cancel);
-                        if (++done % 8 == 0) progress.Report((0.1 + 0.88 * done / total, "Montando o vídeo"));
+                        if (++done % 8 == 0) progress.Report((0.1 + 0.88 * done / total, Loc.T("tool_sprite_building")));
                     }
                 stdin.Close();
             }
@@ -137,13 +137,13 @@ public static class SpriteScene
             {
                 File.Move(temp, output, true);
                 Log.Write($"sprite scene {scene.Title}: {frames.Count} frames, loop {loop:0.###} s x{repeats} at {r} fps, {w}x{h}, {(nvenc ? "nvenc" : "software")}, {filter}");
-                progress.Report((1, "Pronto"));
+                progress.Report((1, Loc.T("tool_done")));
                 return new SceneResult { Output = output, Width = w, Height = h, Margin = margin, Fps = (int)Math.Round(rate) };
             }
             lastError = errors.ToString();
             try { File.Delete(temp); } catch { }
         }
-        throw new InvalidOperationException("O ffmpeg não conseguiu montar o vídeo: " + lastError.Trim());
+        throw new InvalidOperationException(Loc.T("tool_sprite_ffmpeg_failed", lastError.Trim()));
     }
 
     static bool Visible(JsonObject o) => o["visible"] switch

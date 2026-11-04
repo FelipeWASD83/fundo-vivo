@@ -16,9 +16,9 @@ public sealed class LibraryItem
     public bool HasProperties { get; init; }
     public string ContentRating { get; init; }
     public DateTime Date { get; init; }
-    /// <summary>As shown: Wallpaper Engine tags in Portuguese, the user's own as typed.</summary>
+    /// <summary>As shown: Wallpaper Engine tags in Portuguese (as in the file in English), the user's own as typed.</summary>
     public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
-    /// <summary>Livre, Questionável, Adulto, or null when the project does not say.</summary>
+    /// <summary>The rating label of the language at scan time (Livre/Questionável/Adulto or Everyone/Questionable/Mature), or null when the project does not say.</summary>
     public string Rating { get; init; }
     /// <summary>Scenes only: what the video loses, and how strong the parallax is.</summary>
     public SceneTraits Traits { get; init; }
@@ -208,8 +208,8 @@ public sealed class WeProject
             var strings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (general?["localization"] is JsonObject loc)
             {
-                // Portuguese when the author shipped it, English otherwise.
-                foreach (string lang in new[] { "en-us", "pt-br" })
+                // The interface language when the author shipped it, the other one otherwise (later entries win).
+                foreach (string lang in Loc.English ? new[] { "pt-br", "en-us" } : new[] { "en-us", "pt-br" })
                     if (loc[lang] is JsonObject table)
                         foreach (var kv in table) strings[kv.Key] = kv.Value?.ToString() ?? "";
             }
@@ -235,19 +235,21 @@ public sealed class WeProject
         }
     }
 
-    static readonly Dictionary<string, string> BuiltIn = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>Wallpaper Engine's own property labels (pt/en tables, key prefix late_prop_), for the ui_ keys projects use without shipping the text.</summary>
+    static string BuiltIn(string raw) => raw.ToLowerInvariant() switch
     {
-        ["ui_browse_properties_scheme_color"] = "Cor do tema",
-        ["ui_browse_properties_alignment"] = "Alinhamento",
-        ["ui_browse_properties_alignment_center"] = "Centro",
-        ["ui_browse_properties_alignment_left"] = "Esquerda",
-        ["ui_browse_properties_alignment_right"] = "Direita",
-        ["ui_browse_properties_alignment_top"] = "Topo",
-        ["ui_browse_properties_alignment_bottom"] = "Embaixo",
-        ["ui_browse_properties_background_color"] = "Cor de fundo",
-        ["ui_browse_properties_image"] = "Imagem",
-        ["ui_browse_properties_volume"] = "Volume",
-        ["ui_browse_properties_playback_rate"] = "Velocidade",
+        "ui_browse_properties_scheme_color" => Loc.T("late_prop_scheme_color"),
+        "ui_browse_properties_alignment" => Loc.T("late_prop_alignment"),
+        "ui_browse_properties_alignment_center" => Loc.T("late_prop_alignment_center"),
+        "ui_browse_properties_alignment_left" => Loc.T("late_prop_alignment_left"),
+        "ui_browse_properties_alignment_right" => Loc.T("late_prop_alignment_right"),
+        "ui_browse_properties_alignment_top" => Loc.T("late_prop_alignment_top"),
+        "ui_browse_properties_alignment_bottom" => Loc.T("late_prop_alignment_bottom"),
+        "ui_browse_properties_background_color" => Loc.T("late_prop_background_color"),
+        "ui_browse_properties_image" => Loc.T("late_prop_image"),
+        "ui_browse_properties_volume" => Loc.T("late_prop_volume"),
+        "ui_browse_properties_playback_rate" => Loc.T("late_prop_playback_rate"),
+        _ => null,
     };
 
     /// <summary>Wallpaper Engine labels are often localization keys or carry HTML; this returns plain text.</summary>
@@ -258,7 +260,7 @@ public sealed class WeProject
         else if (raw.StartsWith("ui_", StringComparison.OrdinalIgnoreCase))
         {
             // Keys from Wallpaper Engine's own interface, which projects reference without shipping the text.
-            if (BuiltIn.TryGetValue(raw, out var known)) return known;
+            if (BuiltIn(raw) is string known) return known;
             string rest = Regex.Replace(raw, "^ui_(browse_properties_|editor_properties_)?", "", RegexOptions.IgnoreCase).Replace('_', ' ');
             return rest.Length == 0 ? raw : char.ToUpper(rest[0]) + rest[1..];
         }

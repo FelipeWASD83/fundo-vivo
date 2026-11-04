@@ -41,8 +41,8 @@ public static class PackageRenderer
 
     static async Task<SceneResult> RenderAsync(SceneJob job, IProgress<(double, string)> progress, CancellationToken cancel)
     {
-        string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException("O ffmpeg não foi encontrado no PATH.");
-        var info = Packages.Inspect(job.PackageFile) ?? throw new InvalidOperationException("Não deu para ler o arquivo .vivo.");
+        string ffmpeg = VideoConverter.FindFfmpeg() ?? throw new InvalidOperationException(Loc.T("tool_ffmpeg_missing"));
+        var info = Packages.Inspect(job.PackageFile) ?? throw new InvalidOperationException(Loc.T("tool_vivo_unreadable"));
         int fps = Math.Clamp(job.Fps, 10, 60);
         double margin = MarginFor(info.Parallax);
         int w = SceneConverter.Even(job.Width * (1 + 2 * margin)), h = SceneConverter.Even(job.Height * (1 + 2 * margin));
@@ -50,7 +50,7 @@ public static class PackageRenderer
         string output = OutputPath(job.ItemId, job.SceneTitle, job.PackageFile, job.Width, job.Height, fps);
         string temp = output + ".part.mp4";
 
-        progress.Report((0.02, "Abrindo o wallpaper"));
+        progress.Report((0.02, Loc.T("tool_vivo_opening")));
         await using var page = await RenderPage.OpenAsync(job.PackageFile, w, h, margin, cancel);
         if (page.Warnings.Count > 0) Log.Write("vivo warnings: " + string.Join(" | ", page.Warnings));
 
@@ -78,7 +78,7 @@ public static class PackageRenderer
                     cancel.ThrowIfCancellationRequested();
                     await page.DrawAsync(i / (double)fps, i, cancel);
                     page.WriteTo(stdin);
-                    progress.Report((0.04 + 0.94 * (i + 1) / frames, "Renderizando"));
+                    progress.Report((0.04 + 0.94 * (i + 1) / frames, Loc.T("tool_vivo_rendering")));
                 }
                 stdin.Close();
             }
@@ -93,14 +93,14 @@ public static class PackageRenderer
             {
                 File.Move(temp, output, true);
                 Log.Write($"vivo render: {frames} frames {w}x{h} in {clock.Elapsed.TotalSeconds:0.0} s ({frames / clock.Elapsed.TotalSeconds:0.0} fps), {(nvenc ? "nvenc" : "software")}");
-                progress.Report((1, "Pronto"));
+                progress.Report((1, Loc.T("tool_done")));
                 return new SceneResult { Output = output, Width = w, Height = h, Margin = margin, Fps = fps };
             }
             lastError = errors.ToString();
             Log.Write($"vivo render with {(nvenc ? "nvenc" : "software")} failed: {lastError.Trim()}");
             try { File.Delete(temp); } catch { }
         }
-        throw new InvalidOperationException("O ffmpeg não conseguiu gravar o vídeo: " + lastError.Trim());
+        throw new InvalidOperationException(Loc.T("tool_vivo_ffmpeg_failed", lastError.Trim()));
     }
 
     /// <summary>WebView2 needs a thread with a message loop; the worker has none, so this runs one for the job.</summary>
@@ -239,12 +239,12 @@ public static class PackageRenderer
                 {
                     var m = _messages.Dequeue();
                     string got = m["type"]?.ToString();
-                    if (got == "error") throw new InvalidOperationException("O wallpaper deu erro: " + m["message"]);
+                    if (got == "error") throw new InvalidOperationException(Loc.T("tool_vivo_page_error", m["message"]?.ToString() ?? ""));
                     if (got == "warning") { Warnings.Add(m["message"]?.ToString()); continue; }
                     if (got == type) return m;
                 }
                 var left = deadline - DateTime.UtcNow;
-                if (left <= TimeSpan.Zero) throw new TimeoutException($"O wallpaper não respondeu ({type}).");
+                if (left <= TimeSpan.Zero) throw new TimeoutException(Loc.T("tool_vivo_page_timeout", type));
                 _arrived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 if (_messages.Count > 0) continue;
                 await Task.WhenAny(_arrived.Task, Task.Delay(left, cancel));
