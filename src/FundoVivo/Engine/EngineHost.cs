@@ -133,6 +133,8 @@ public sealed class EngineHost : NativeWindow
             }
         }
         _monitors = Monitors.Enumerate();
+        if (Monitors.Reconcile(_config, _monitors))
+            _config = ConfigStore.Mutate(c => Monitors.Reconcile(c, _monitors));
 
         foreach (var id in _slots.Keys.ToList())
         {

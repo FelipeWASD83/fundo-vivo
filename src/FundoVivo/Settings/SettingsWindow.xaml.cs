@@ -113,6 +113,11 @@ public partial class SettingsWindow : Window
     void ReloadMonitors()
     {
         _monitors = Monitors.Enumerate();
+        if (Monitors.Reconcile(_config, _monitors))
+        {
+            _config = ConfigStore.Mutate(c => Monitors.Reconcile(c, _monitors));
+            RenderLibrary();
+        }
         if (_selectedMonitor == null || _monitors.All(m => m.Id != _selectedMonitor))
             _selectedMonitor = (_monitors.FirstOrDefault(m => m.Primary) ?? _monitors.FirstOrDefault())?.Id;
         DrawMonitors();
@@ -424,7 +429,9 @@ public partial class SettingsWindow : Window
         thumbGrid.Children.Add(image);
         Thumbnails.Request(item.Preview, item.File, bmp => image.Source = bmp);
 
-        var onMonitors = _config.Monitors.Where(kv => kv.Value?.ItemId == item.Id).Select(kv => _monitors.FirstOrDefault(m => m.Id == kv.Key)?.Label ?? kv.Value.MonitorName).ToList();
+        // only screens connected now: a saved one that is off or gone is not where the wallpaper is showing
+        var onMonitors = _config.Monitors.Where(kv => kv.Value?.ItemId == item.Id)
+            .Select(kv => _monitors.FirstOrDefault(m => m.Id == kv.Key)?.Label).Where(l => l != null).ToList();
         bool here = SelectedAssignment?.ItemId == item.Id;
 
         var text = new StackPanel { Margin = new Thickness(ringGap + 4, 8, ringGap + 4, 0) };

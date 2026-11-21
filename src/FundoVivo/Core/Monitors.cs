@@ -44,6 +44,58 @@ public static class Monitors
         return result.OrderBy(m => m.Bounds.Left).ThenBy(m => m.Bounds.Top).ToList();
     }
 
+    /// <summary>
+    /// The same screen can come back under a new id: a new graphics card, another port or a driver reinstall changes the
+    /// middle of the device path (\\?\DISPLAY#AUS342B#5&amp;a2dc00&amp;0&amp;UID8449#{...} became ...#5&amp;477e92c&amp;0&amp;UID8449#...
+    /// after the RTX 5070 went in). A saved monitor that is gone and matches exactly one connected screen by EDID model
+    /// (and connector UID, when one matches) is that screen: its wallpaper and playlist move there, or are dropped when
+    /// that screen already has its own. A saved monitor with no match stays (a TV that is off comes back later).
+    /// Returns true when the config changed.
+    /// </summary>
+    public static bool Reconcile(AppConfig config, IReadOnlyList<MonitorInfo> present)
+    {
+        if (present.Count == 0) return false;
+        var presentIds = new HashSet<string>(present.Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
+        var gone = config.Monitors.Keys.Concat(config.Playlists.Keys)
+            .Where(id => !presentIds.Contains(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        bool changed = false;
+        foreach (var old in gone)
+        {
+            var (model, uid) = Hardware(old);
+            if (model == null) continue;
+            var sameModel = present.Where(m => Hardware(m.Id).Model == model).ToList();
+            var sameUid = sameModel.Where(m => uid != null && Hardware(m.Id).Uid == uid).ToList();
+            // without a connector match, only when there is no doubt: one screen of that model, one missing entry of it
+            var match = sameUid.Count == 1 ? sameUid[0]
+                : sameUid.Count == 0 && sameModel.Count == 1 && gone.Count(g => Hardware(g).Model == model) == 1 ? sameModel[0]
+                : null;
+            if (match == null) continue;
+
+            if (config.Monitors.Remove(old, out var assignment) && assignment != null && !config.Monitors.ContainsKey(match.Id))
+            {
+                assignment.MonitorName = match.Label;
+                config.Monitors[match.Id] = assignment;
+                Log.Write($"monitor {Short(old)} is now {Short(match.Id)} ({match.Label}): wallpaper moved");
+            }
+            else Log.Write($"monitor {Short(old)} is now {Short(match.Id)} ({match.Label}): old entry dropped");
+            if (config.Playlists.Remove(old, out var playlist) && playlist != null && !config.Playlists.ContainsKey(match.Id))
+                config.Playlists[match.Id] = playlist;
+            changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>EDID model (AUS342B) and connector (UID8449) from a device path; nulls for a \\.\DISPLAYn fallback id.</summary>
+    static (string Model, string Uid) Hardware(string id)
+    {
+        var parts = (id ?? "").Split('#');
+        if (parts.Length < 3 || !parts[0].EndsWith("DISPLAY", StringComparison.OrdinalIgnoreCase)) return (null, null);
+        var uid = System.Text.RegularExpressions.Regex.Match(parts[2], @"UID\d+", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return (parts[1].ToUpperInvariant(), uid.Success ? uid.Value.ToUpperInvariant() : null);
+    }
+
+    static string Short(string id) => id.Split('#') is { Length: >= 3 } p ? $"{p[1]}#{p[2]}" : id;
+
     // ---- QueryDisplayConfig: the only API that gives the monitor's real name and a stable id ----
 
     [StructLayout(LayoutKind.Sequential)] struct LUID { public uint Low; public int High; }

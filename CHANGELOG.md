@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.10.1 (21/11/2026)
+
+### Corrigido
+- Trocar a placa de vídeo (ou a porta, ou reinstalar o driver) faz o Windows dar outro nome ao mesmo monitor, e o Fundo Vivo guardava o antigo para sempre: a biblioteca mostrava o monitor duas vezes. Agora ele reconhece que é a mesma tela, leva o wallpaper e a playlist para o nome novo e esquece o velho.
+- A biblioteca só diz em quais monitores um wallpaper está contando os que estão ligados.
+
 ## 2.10.0 (04/11/2026)
 
 ### Novo

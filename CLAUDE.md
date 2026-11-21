@@ -44,7 +44,13 @@ motor ─► %LOCALAPPDATA%\FundoVivo\state.json (estado de cada monitor) ─►
   num monitor pausa todos (a 3060 dele é o gargalo nos jogos).
 - **Explorer reiniciado**: a mensagem `TaskbarCreated` recria o ícone da bandeja e refaz os wallpapers.
 - **Monitores** (`Core/Monitors.cs`): o id estável é o caminho do monitor do `QueryDisplayConfig`
-  (`\\?\DISPLAY#AUS342B#...`), não o `\\.\DISPLAYn`, que muda com a ordem dos cabos.
+  (`\\?\DISPLAY#AUS342B#...`), não o `\\.\DISPLAYn`, que muda com a ordem dos cabos. **Mas o meio do caminho muda
+  com a placa de vídeo** (2.10.1): com a RTX 5070, em 21/11/2026, o ultrawide passou de `5&a2dc00&0&UID8449` para
+  `5&477e92c&0&UID8449`, e a entrada velha ficou para sempre na config (a biblioteca mostrava o monitor duas vezes).
+  `Monitors.Reconcile`, chamado pela engine e pela janela sempre que relêem os monitores, liga um monitor salvo que
+  sumiu a uma tela ligada pelo modelo do EDID e pelo `UID` do conector (ou só pelo modelo, quando só há uma tela dele
+  e uma entrada sumida dele): o wallpaper e a playlist vão para o id novo, ou a entrada velha sai se a tela já tem os
+  dela. Sem par, a entrada fica (TV desligada volta depois), mas a biblioteca só cita monitor ligado.
 
 - **Idioma** (`Core/Loc.cs`, 2.10.0): tabelas `(chave, pt, en)` em `Core/Strings/Strings*.cs`, lidas por `Loc.T("chave", args)`
   no código e `{loc:T chave}` no XAML (`xmlns:loc="clr-namespace:FundoVivo.Core"`). Segue o idioma do Windows
